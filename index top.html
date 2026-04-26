@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TikTod</title>
+<link rel="icon" href="https://static.vecteezy.com/system/resources/thumbnails/045/832/436/small_2x/3d-pink-alphabet-letter-t-png.png">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --nav-h: 60px;
+  /* --vh di-set oleh JS = 1% dari tinggi visual viewport yang sebenarnya */
+  /* Ini fix Chrome Android dynamic toolbar yang ubah innerHeight */
+  --vh: 1vh; /* fallback, akan di-override JS */
+}
+
+body {
+  background: #000;
+  font-family: 'Segoe UI', sans-serif;
+  overflow: hidden;
+  width: 100vw;
+  /* Pakai custom --vh supaya tidak kepotong toolbar Chrome */
+  height: calc(var(--vh, 1vh) * 100);
+  position: fixed;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Feed: isi tinggi = total height - navbar */
+#feed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* bottom di-set JS secara eksplisit */
+  overflow: hidden;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.slide.active { opacity: 1; pointer-events: auto; z-index: 2; }
+.slide video {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+  -webkit-touch-callout: none;
+}
+.slide::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom,
+    rgba(0,0,0,0.08) 0%, transparent 25%,
+    transparent 50%, rgba(0,0,0,0.7) 100%);
+  pointer-events: none; z-index: 3;
+}
+
+/* Info (title + views) — bottom relatif feed container */
+.info {
+  position: absolute;
+  bottom: 30px;
+  left: 14px; right: 80px;
+  z-index: 5; color: #fff;
+}
+.info h3 {
+  font-size: 15px; font-weight: 700;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+  margin-bottom: 3px; line-height: 1.3;
+}
+.info span { font-size: 12px; opacity: 0.7; }
+
+/* Progress bar — feed sudah di-clip oleh #feed height (tidak include navbar)
+   Jadi bottom 0 = tepat di batas bawah feed. Beri jarak 10px dari bawah feed. */
+.prog-wrap {
+  position: absolute;
+  bottom: 10px;
+  left: 0; right: 0; height: 3px;
+  background: rgba(255,255,255,0.25);
+  z-index: 6; cursor: pointer;
+}
+.prog-fill {
+  height: 100%; width: 0%;
+  background: #fff; border-radius: 2px;
+  pointer-events: none;
+}
+
+/* Play icon */
+.play-icon {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0.6);
+  font-size: 60px; color: #fff;
+  z-index: 7; opacity: 0; pointer-events: none;
+  transition: opacity 0.12s, transform 0.12s;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.5);
+}
+.play-icon.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+/* Spinner */
+.spinner {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 38px; height: 38px;
+  border: 3px solid rgba(255,255,255,0.2);
+  border-top-color: rgba(255,255,255,0.9);
+  border-radius: 50%; z-index: 8; opacity: 0;
+  pointer-events: none;
+  animation: spin 0.75s linear infinite;
+  transition: opacity 0.15s;
+}
+.spinner.show { opacity: 1; }
+@keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+/* ═══════════════════════════════════════════
+   SIDE ACTIONS (Like, Share)
+═══════════════════════════════════════════ */
+.side-actions {
+  position: absolute;
+  right: 10px;
+  bottom: 24px;
+  z-index: 5;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 18px;
+}
+.action-btn {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 4px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s;
+}
+.action-btn:active { transform: scale(0.88); }
+.action-icon {
+  width: 44px; height: 44px;
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: background 0.2s;
+}
+.action-btn.saved .action-icon {
+  background: rgba(255,220,50,0.3);
+  border-color: rgba(255,220,50,0.6);
+}
+.action-label {
+  color: #fff; font-size: 11px; font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+
+/* ═══════════════════════════════════════════
+   LOGO
+═══════════════════════════════════════════ */
+#logoHome {
+  position: fixed; top: 14px; left: 14px;
+  z-index: 9999; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s;
+}
+#logoHome:active { transform: scale(0.92); }
+#logoHome img { width: 88px; height: auto; display: block;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4)); }
+
+/* ═══════════════════════════════════════════
+   SWIPE HINT
+═══════════════════════════════════════════ */
+#swipeHint {
+  position: fixed;
+  bottom: 80px; /* di-update JS */
+  left: 50%; transform: translateX(-50%);
+  z-index: 9999; color: #fff; font-size: 14px; font-weight: 500;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 8px 18px; border-radius: 24px;
+  pointer-events: none; white-space: nowrap;
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.4s, visibility 0.4s;
+}
+#swipeHint.show { opacity: 1; visibility: visible; animation: hintBounce 1.4s ease-in-out 0.4s infinite; }
+#swipeHint.hide { opacity: 0; visibility: hidden; animation: none; }
+@keyframes hintBounce {
+  0%,100% { transform: translateX(-50%) translateY(0); }
+  50%      { transform: translateX(-50%) translateY(-8px); }
+}
+
+/* Side dots — disembunyikan */
+#dots { display: none !important; }
+
+/* ═══════════════════════════════════════════
+   BOTTOM NAVIGATION BAR
+═══════════════════════════════════════════ */
+#navbar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: auto;
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
+  background: rgba(15,15,15,0.96);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: flex-start; justify-content: space-around;
+  padding-top: 8px;
+  z-index: 10000;
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; gap: 3px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  padding: 4px 0; transition: opacity 0.15s;
+}
+.nav-item:active { opacity: 0.6; }
+.nav-item svg { width: 24px; height: 24px; }
+.nav-item span { font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.45); }
+.nav-item.active span { color: #fff; }
+.nav-item.active svg { filter: brightness(0) invert(1); }
+.nav-item:not(.active) svg { filter: brightness(0) invert(0.45); }
+
+/* ═══════════════════════════════════════════
+   PAGES (Explore, Search, Likes)
+═══════════════════════════════════════════ */
+.page {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  /* bottom di-set JS */
+  background: #0a0a0a;
+  z-index: 999; overflow-y: auto;
+  display: none;
+  -webkit-overflow-scrolling: touch;
+}
+.page.active { display: block; }
+
+.page-header {
+  position: sticky; top: 0;
+  background: rgba(10,10,10,0.95);
+  backdrop-filter: blur(10px);
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  z-index: 10;
+}
+.page-header h2 { color: #fff; font-size: 18px; font-weight: 700; }
+
+/* Search bar */
+.search-bar {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px; padding: 10px 14px; margin: 12px 16px 0;
+}
+.search-bar input {
+  flex: 1; background: none; border: none; outline: none;
+  color: #fff; font-size: 15px; font-family: inherit;
+}
+.search-bar input::placeholder { color: rgba(255,255,255,0.35); }
+.search-bar svg { flex-shrink: 0; opacity: 0.5; }
+
+/* Grid layout 2 kolom */
+.video-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px; padding: 2px;
+}
+.grid-item {
+  position: relative; aspect-ratio: 9/16;
+  overflow: hidden; cursor: pointer;
+  background: #111;
+  -webkit-tap-highlight-color: transparent;
+}
+.grid-item img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.grid-item .grid-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.75) 100%);
+}
+.grid-item .grid-title {
+  position: absolute; bottom: 8px; left: 8px; right: 8px;
+  color: #fff; font-size: 12px; font-weight: 600;
+  line-height: 1.3;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+  display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+.grid-item .grid-views {
+  position: absolute; top: 8px; left: 8px;
+  color: #fff; font-size: 10px; font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+}
+
+/* Like icon badge di grid */
+.grid-item .like-badge {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 16px;
+}
+
+/* Empty state */
+.empty-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 80px 20px; gap: 12px; text-align: center;
+}
+.empty-state .empty-icon { font-size: 52px; opacity: 0.3; }
+.empty-state p { color: rgba(255,255,255,0.4); font-size: 15px; }
+
+/* Toast notif */
+#toast {
+  position: fixed; bottom: 80px; /* di-update JS */
+  left: 50%; transform: translateX(-50%);
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff; font-size: 13px; font-weight: 500;
+  padding: 8px 18px; border-radius: 20px;
+  z-index: 99999; white-space: nowrap;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
+}
+#toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- LOGO -->
+<div id="logoHome">
+  <img src="https://i.ibb.co.com/5XCdSQrN/Tik-Tod-1.png" alt="TikTod">
+</div>
+
+<div id="swipeHint">☝️ swipe up untuk next</div>
+<div id="dots"></div>
+<div id="feed"></div>
+<div id="toast"></div>
+
+<!-- ═══ PAGES ═══ -->
+
+<!-- EXPLORE -->
+<div class="page" id="pageExplore">
+  <div class="page-header"><h2>Explore</h2></div>
+  <div class="video-grid" id="gridExplore"></div>
+</div>
+
+<!-- SEARCH -->
+<div class="page" id="pageSearch">
+  <div class="page-header">
+    <h2>Search</h2>
+    <div class="search-bar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#fff;width:18px;height:18px"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="searchInput" placeholder="Cari video...">
+    </div>
+  </div>
+  <div class="video-grid" id="gridSearch"></div>
+</div>
+
+<!-- LIKES -->
+<div class="page" id="pageLikes">
+  <div class="page-header"><h2>Saved</h2></div>
+  <div class="video-grid" id="gridLikes"></div>
+</div>
+
+<!-- ═══ BOTTOM NAV ═══ -->
+<nav id="navbar">
+  <!-- Home -->
+  <div class="nav-item active" data-page="home">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+    <span>Home</span>
+  </div>
+  <!-- Explore -->
+  <div class="nav-item" data-page="explore">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+    <span>Explore</span>
+  </div>
+  <!-- Search -->
+  <div class="nav-item" data-page="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <span>Search</span>
+  </div>
+  <!-- Save -->
+  <div class="nav-item" data-page="likes">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+    <span>Saved</span>
+  </div>
+</nav>
+
+<script src="data/videos.js"></script>
+<script>
+// ── FEED HEIGHT FIX ──────────────────────────────────────────────────────────
+// Chrome Android punya "dynamic toolbar" yang bisa muncul/sembunyi.
+// Saat toolbar muncul, window.innerHeight BERKURANG tapi CSS vh TIDAK berubah.
+// Fix: pakai visualViewport.height yang selalu akurat, set sebagai CSS var --vh.
+// Navbar bottom di-set JS setelah layout selesai.
+
+function fixLayout() {
+  const vh   = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+  document.documentElement.style.setProperty('--vh', (vh * 0.01) + 'px');
+
+  const navbar   = document.getElementById('navbar');
+  const navH     = navbar.offsetHeight;
+  const bottomVal = navH + 'px';
+
+  // Feed dan pages: bottom = tepat di atas navbar
+  document.getElementById('feed').style.bottom = bottomVal;
+  document.querySelectorAll('.page').forEach(p => { p.style.bottom = bottomVal; });
+
+  // Hint lebih tinggi dari title (title ada di ~30-60px dari bawah feed)
+  // Naruh hint di atas title dengan buffer 90px dari atas navbar
+  const aboveNav = navH + 100;
+  const hint = document.getElementById('swipeHint');
+  const toast = document.getElementById('toast');
+  if (hint)  hint.style.bottom  = aboveNav + 'px';
+  if (toast) toast.style.bottom = (navH + 20) + 'px';
+}
+
+// Jalankan segera (sync) — navbar sudah di DOM saat script ini jalan
+fixLayout();
+
+// Update saat toolbar Chrome muncul/sembunyi (mengubah visualViewport.height)
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', fixLayout);
+}
+// Fallback untuk browser tanpa visualViewport
+window.addEventListener('resize', fixLayout);
+</script>
+<script>
+// ── GUARD ────────────────────────────────────────────────────────────────────
+if (typeof videos === 'undefined' || !Array.isArray(videos) || videos.length === 0) {
+  document.getElementById('feed').innerHTML =
+    '<div style="color:#fff;text-align:center;padding-top:40vh;font-size:16px">Gagal memuat video.<br>Cek file data/videos.js</div>';
+  throw new Error('videos.js tidak ditemukan atau kosong');
+}
+
+// ── CTA ──────────────────────────────────────────────────────────────────────
+const CTA_URL = (function() {
+  if (typeof ctaUrl !== 'undefined' && ctaUrl) return ctaUrl;
+  const f = videos.find(v => v.cta); return f ? f.cta : '';
+})();
+const CTA_SWIPES = 3;
+
+// ── UTILS ────────────────────────────────────────────────────────────────────
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Toast
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+// Shuffle semua video lalu ambil 10 pertama → selalu random tiap refresh
+const vlist      = shuffle(videos).slice(0, 10);
+const total      = vlist.length;
+let current      = 0;
+let locked       = false;
+let interacted   = false;
+const finished   = new Array(total).fill(false);
+const userPaused = new Array(total).fill(false);
+
+// Saved — simpan di localStorage supaya persist antar session
+let savedSet = new Set(JSON.parse(localStorage.getItem('tiktod_saves') || '[]'));
+function saveSaves() { localStorage.setItem('tiktod_saves', JSON.stringify([...savedSet])); }
+
+// CTA
+let swipeCount = 0, ctaFired = false, hasLeftHome = false;
+
+const feed    = document.getElementById('feed');
+const dotsEl  = document.getElementById('dots');
+const swipeHint = document.getElementById('swipeHint');
+const slides  = [];
+
+// ── BUILD FEED DOM ────────────────────────────────────────────────────────────
+vlist.forEach((v, i) => {
+  const slide = document.createElement('div');
+  slide.className = 'slide';
+
+  const vid = document.createElement('video');
+  vid.setAttribute('playsinline', '');
+  vid.setAttribute('webkit-playsinline', '');
+  vid.muted = true; vid.preload = 'none'; vid.loop = false;
+  if (v.thumb) vid.poster = v.thumb;
+  if (i === 0) { vid.src = v.src; vid.preload = 'metadata'; }
+  else          vid.dataset.src = v.src;
+
+  // Info
+  const info = document.createElement('div');
+  info.className = 'info';
+  const h3 = document.createElement('h3'); h3.textContent = v.title || '';
+  const sp = document.createElement('span'); sp.textContent = v.views || '';
+  info.appendChild(h3); info.appendChild(sp);
+
+  // Progress
+  const progWrap = document.createElement('div'); progWrap.className = 'prog-wrap';
+  const progFill = document.createElement('div'); progFill.className = 'prog-fill';
+  progWrap.appendChild(progFill);
+
+  // Play icon
+  const playIcon = document.createElement('div'); playIcon.className = 'play-icon';
+
+  // Spinner
+  const spinner = document.createElement('div'); spinner.className = 'spinner';
+
+  // Side actions (like + share)
+  const sideActions = document.createElement('div'); sideActions.className = 'side-actions';
+
+  // Saved/bookmark icon SVG
+  const ICON_SAVE_OFF = `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
+  const ICON_SAVE_ON  = `<svg viewBox="0 0 24 24" fill="#FFD700" stroke="#FFD700" stroke-width="2" width="22" height="22"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
+
+  const saveBtn = document.createElement('div');
+  saveBtn.className = 'action-btn' + (savedSet.has(v.id) ? ' saved' : '');
+  saveBtn.dataset.vidid = v.id;
+  saveBtn.innerHTML = `
+    <div class="action-icon">${savedSet.has(v.id) ? ICON_SAVE_ON : ICON_SAVE_OFF}</div>
+    <span class="action-label save-label">${savedSet.has(v.id) ? 'Saved' : 'Save'}</span>`;
+
+  const dlBtn = document.createElement('div');
+  dlBtn.className = 'action-btn';
+  dlBtn.innerHTML = `
+    <div class="action-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+    </div>
+    <span class="action-label">Download</span>`;
+
+  sideActions.appendChild(saveBtn);
+  sideActions.appendChild(dlBtn);
+
+  slide.appendChild(vid);
+  slide.appendChild(info);
+  slide.appendChild(progWrap);
+  slide.appendChild(playIcon);
+  slide.appendChild(spinner);
+  slide.appendChild(sideActions);
+  feed.appendChild(slide);
+  slides.push(slide);
+
+  // ── EVENTS ──
+
+  vid.addEventListener('timeupdate', () => {
+    if (vid.duration) progFill.style.width = (vid.currentTime / vid.duration * 100) + '%';
+  });
+
+  vid.addEventListener('waiting', () => { if (i === current) { spinner.classList.add('show'); startStallWatch(i); } });
+  vid.addEventListener('playing', () => {
+    spinner.classList.remove('show');
+    if (!userPaused[i]) playIcon.classList.remove('show');
+    clearStall(i);
+    if (!userPaused[i]) startStallWatch(i);
+  });
+  vid.addEventListener('canplay', () => spinner.classList.remove('show'));
+  vid.addEventListener('stalled', () => { if (i === current) { spinner.classList.add('show'); startStallWatch(i); } });
+  vid.addEventListener('error',   () => {
+    if (i !== current) return;
+    clearStall(i); spinner.classList.add('show');
+    const src = vid.dataset.src || vid.src;
+    setTimeout(() => {
+      if (i !== current) return;
+      vid.src = src; vid.muted = !interacted;
+      vid.play().catch(() => { vid.muted = true; vid.play().catch(() => {}); });
+    }, 1200);
+  });
+
+  vid.addEventListener('ended', () => {
+    if (i !== current) return;
+    finished[i] = true; locked = false;
+    goTo((current + 1) % total, false, false);
+  });
+
+  // Single tap → play/pause (tidak ada double tap logic)
+  slide.addEventListener('click', (e) => {
+    if (locked) return;
+    if (e.target.closest('.side-actions') || e.target.closest('.prog-wrap')) return;
+    e.stopPropagation();
+
+    interacted = true; vid.muted = false;
+    if (vid.paused) {
+      userPaused[i] = false;
+      playIcon.classList.remove('show');
+      vid.play().catch(() => { vid.muted = true; vid.play().catch(() => {}); });
+    } else {
+      userPaused[i] = true;
+      vid.pause();
+      playIcon.textContent = '▶'; playIcon.classList.add('show');
+    }
+  });
+
+  // ── SAVE BUTTON ─────────────────────────────────────────────────────────
+  saveBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    triggerSave(i, saveBtn);
+  });
+
+  // ── DOWNLOAD BUTTON ──────────────────────────────────────────────────────
+  dlBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const url = v.src || (getVid(i).src);
+    if (!url) { showToast('URL video tidak tersedia'); return; }
+    const a = document.createElement('a');
+    a.href = url; a.download = (v.title || 'video') + '.mp4';
+    a.target = '_blank'; // fallback kalau CORS block download
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    showToast('Mengunduh video... ⬇️');
+  });
+
+  // ── SEEK PROGRESS ────────────────────────────────────────────────────────
+  progWrap.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!vid.duration) return;
+    vid.currentTime = ((e.clientX - progWrap.getBoundingClientRect().left) / progWrap.offsetWidth) * vid.duration;
+  });
+});
+
+// ── SAVE LOGIC ───────────────────────────────────────────────────────────────
+const ICON_SAVE_OFF_TPL = `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
+const ICON_SAVE_ON_TPL  = `<svg viewBox="0 0 24 24" fill="#FFD700" stroke="#FFD700" stroke-width="2" width="22" height="22"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
+
+function triggerSave(i, saveBtn) {
+  const v = vlist[i];
+  const isSaved = savedSet.has(v.id);
+  const icon  = saveBtn.querySelector('.action-icon');
+  const label = saveBtn.querySelector('.save-label');
+
+  if (isSaved) {
+    savedSet.delete(v.id);
+    saveBtn.classList.remove('saved');
+    icon.innerHTML  = ICON_SAVE_OFF_TPL;
+    label.textContent = 'Save';
+    showToast('Dihapus dari Saved');
+  } else {
+    savedSet.add(v.id);
+    saveBtn.classList.add('saved');
+    icon.innerHTML  = ICON_SAVE_ON_TPL;
+    label.textContent = 'Saved';
+    showToast('Tersimpan! 🔖');
+  }
+  saveSaves();
+  renderSavedPage();
+}
+
+// ── DOTS ─────────────────────────────────────────────────────────────────────
+vlist.forEach((_, i) => {
+  const d = document.createElement('div');
+  d.className = 'dot' + (i === 0 ? ' active' : '');
+  dotsEl.appendChild(d);
+});
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function getVid(i) { return slides[i].querySelector('video'); }
+function ensureSrc(i) {
+  if (i < 0 || i >= total) return;
+  const v = getVid(i);
+  if (!v.src && v.dataset.src) v.src = v.dataset.src;
+}
+
+// ── STALL RECOVERY ───────────────────────────────────────────────────────────
+const stallTimers = new Array(total).fill(null);
+const STALL_MS    = 5000;
+function clearStall(i) { if (stallTimers[i]) { clearTimeout(stallTimers[i]); stallTimers[i] = null; } }
+function startStallWatch(i) {
+  clearStall(i);
+  const v = getVid(i), spinner = slides[i].querySelector('.spinner'), snapTime = v.currentTime;
+  stallTimers[i] = setTimeout(() => {
+    stallTimers[i] = null;
+    if (i !== current || userPaused[i] || v.paused || v.currentTime > snapTime + 0.1) return;
+    const src = v.src, pos = v.currentTime;
+    spinner.classList.add('show');
+    v.src = ''; v.load();
+    setTimeout(() => {
+      if (i !== current || userPaused[i]) return;
+      v.src = src; v.muted = !interacted;
+      v.addEventListener('loadedmetadata', function onMeta() {
+        v.removeEventListener('loadedmetadata', onMeta);
+        if (userPaused[i]) return;
+        if (pos > 0 && pos < v.duration - 0.5) v.currentTime = pos;
+        v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
+      }, { once: true });
+    }, 400);
+  }, STALL_MS);
+}
+
+// ── PLAY ─────────────────────────────────────────────────────────────────────
+function playVid(i) {
+  const v = getVid(i), spinner = slides[i].querySelector('.spinner');
+  if (userPaused[i]) return;
+  slides[i].querySelector('.play-icon').classList.remove('show');
+  v.muted = !interacted;
+  if (finished[i]) { v.currentTime = 0; finished[i] = false; slides[i].querySelector('.prog-fill').style.width = '0%'; }
+  if (!v.src && v.dataset.src) v.src = v.dataset.src;
+  if (v.readyState === 0) {
+    spinner.classList.add('show'); v.load();
+    v.addEventListener('loadedmetadata', function onReady() {
+      v.removeEventListener('loadedmetadata', onReady);
+      if (i !== current) return;
+      v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
+      startStallWatch(i);
+    }, { once: true });
+    setTimeout(() => { if (i !== current || !v.paused || userPaused[i]) return; v.play().catch(() => { v.muted = true; v.play().catch(() => {}); }); }, 8000);
+    return;
+  }
+  const p = v.play();
+  if (p && p.catch) p.catch(() => { v.muted = true; v.play().catch(() => {}); });
+  startStallWatch(i);
+}
+
+function unloadFarVideos(idx) {
+  slides.forEach((s, i) => {
+    const dist = Math.min(Math.abs(i - idx), total - Math.abs(i - idx));
+    if (dist > 2) {
+      const v = s.querySelector('video');
+      if (!v.paused) v.pause();
+      if (v.src) { v.dataset.src = v.src; v.removeAttribute('src'); v.load(); }
+    }
+  });
+}
+
+// ── NAVIGATE ─────────────────────────────────────────────────────────────────
+function goTo(next, force, isUserSwipe) {
+  if (locked && !force) return;
+  if (next === current && !force) return;
+  locked = true;
+  userPaused[current] = false;
+  const prev = current;
+  clearStall(prev);
+  slides[prev].querySelector('.play-icon').classList.remove('show');
+  slides.forEach((s, i) => {
+    if (i !== next) { s.querySelector('video').pause(); s.querySelector('.spinner').classList.remove('show'); s.classList.remove('active'); }
+  });
+  current = next;
+  slides[current].classList.add('active');
+  dotsEl.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === current));
+  ensureSrc(current); ensureSrc((current + 1) % total);
+  unloadFarVideos(current);
+  if (current === 0 && !interacted) {
+    const pi = slides[0].querySelector('.play-icon');
+    pi.textContent = '▶'; pi.classList.add('show');
+    locked = false; return;
+  }
+  playVid(current);
+  setTimeout(() => { locked = false; }, 280);
+  if (!ctaFired && isUserSwipe) {
+    if (!hasLeftHome && prev === 0) hasLeftHome = true;
+    if (hasLeftHome) {
+      swipeCount++;
+      if (swipeCount >= CTA_SWIPES && CTA_URL) { ctaFired = true; setTimeout(() => window.open(CTA_URL, '_blank'), 400); }
+    }
+  }
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+slides[0].classList.add('active');
+ensureSrc(1);
+const pi0 = slides[0].querySelector('.play-icon');
+pi0.textContent = '▶'; pi0.classList.add('show');
+
+let hintDone = false;
+function dismissHint() { if (hintDone) return; hintDone = true; swipeHint.classList.remove('show'); swipeHint.classList.add('hide'); }
+setTimeout(() => { if (hintDone) return; swipeHint.classList.add('show'); setTimeout(dismissHint, 4000); }, 900);
+
+// ── TOUCH ────────────────────────────────────────────────────────────────────
+let ty = 0, tx = 0, tt = 0, tVert = false;
+feed.addEventListener('touchstart', (e) => { ty = e.touches[0].clientY; tx = e.touches[0].clientX; tt = Date.now(); tVert = false; }, { passive: true });
+feed.addEventListener('touchmove', (e) => {
+  const dy = ty - e.touches[0].clientY, dx = tx - e.touches[0].clientX;
+  if (!tVert && (Math.abs(dy) > 8 || Math.abs(dx) > 8)) tVert = Math.abs(dy) >= Math.abs(dx);
+  if (tVert) e.preventDefault();
+}, { passive: false });
+feed.addEventListener('touchend', (e) => {
+  if (!tVert || locked) return;
+  const dy = ty - e.changedTouches[0].clientY, vel = Math.abs(dy) / Math.max(Date.now() - tt, 1);
+  if (Math.abs(dy) < 40 && vel < 0.3) return;
+  interacted = true; dismissHint();
+  goTo(dy > 0 ? (current + 1) % total : (current - 1 + total) % total, false, true);
+}, { passive: true });
+
+// ── KEYBOARD ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  if (locked) return;
+  if (e.key === 'ArrowDown') { dismissHint(); goTo((current + 1) % total, false, true); }
+  if (e.key === 'ArrowUp')   { goTo((current - 1 + total) % total, false, true); }
+  if (e.key === ' ')         { e.preventDefault(); slides[current].click(); }
+});
+
+// ── WHEEL ────────────────────────────────────────────────────────────────────
+let wc = false;
+feed.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  if (locked || wc) return;
+  wc = true; setTimeout(() => wc = false, 420);
+  dismissHint();
+  goTo(e.deltaY > 0 ? (current + 1) % total : (current - 1 + total) % total, false, true);
+}, { passive: false });
+
+// ── CONTEXT MENU BLOCK ───────────────────────────────────────────────────────
+document.addEventListener('contextmenu', e => e.preventDefault());
+feed.addEventListener('contextmenu',     e => e.preventDefault());
+
+// ── LOGO HOME ────────────────────────────────────────────────────────────────
+document.getElementById('logoHome').addEventListener('click', (e) => {
+  e.stopPropagation();
+  switchPage('home');
+  if (current === 0) {
+    const v = getVid(0); v.pause(); v.currentTime = 0;
+    slides[0].querySelector('.prog-fill').style.width = '0%';
+    const pi = slides[0].querySelector('.play-icon');
+    pi.textContent = '▶'; pi.classList.add('show');
+    interacted = false; hasLeftHome = false; swipeCount = 0; return;
+  }
+  locked = false; goTo(0, true, false);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  NAVIGATION PAGES
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── AUTO THUMBNAIL GENERATOR ─────────────────────────────────────────────────
+// Snap frame dari video menggunakan canvas — tidak perlu URL jpg sama sekali.
+// Cache thumbnail di memori (thumbCache) supaya tidak di-generate ulang tiap render.
+const thumbCache = {}; // { videoId: dataURL }
+
+function generateThumb(src, callback) {
+  // Gunakan cache kalau sudah pernah di-generate
+  const key = src;
+  if (thumbCache[key]) { callback(thumbCache[key]); return; }
+
+  const v = document.createElement('video');
+  v.crossOrigin  = 'anonymous';
+  v.muted        = true;
+  v.preload      = 'metadata';
+  v.playsInline  = true;
+
+  v.addEventListener('loadedmetadata', () => {
+    // Seek ke 10% durasi untuk dapat frame yang lebih menarik
+    v.currentTime = Math.max(0.5, v.duration * 0.1);
+  }, { once: true });
+
+  v.addEventListener('seeked', () => {
+    try {
+      const canvas = document.createElement('canvas');
+      // Resolusi kecil untuk hemat memory — 180x320 cukup untuk grid thumbnail
+      canvas.width  = 180;
+      canvas.height = 320;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      thumbCache[key] = dataUrl;
+      callback(dataUrl);
+    } catch (e) {
+      // CORS atau error lain → callback null, pakai placeholder
+      callback(null);
+    }
+    v.src = ''; // bebaskan memory
+  }, { once: true });
+
+  v.addEventListener('error', () => callback(null), { once: true });
+
+  v.src = src;
+}
+
+// Set thumbnail ke elemen img di grid, dengan fallback placeholder
+function setGridThumb(imgEl, placeholderEl, src, title) {
+  if (!src) { placeholderEl.style.display = 'flex'; return; }
+  generateThumb(src, (dataUrl) => {
+    if (dataUrl) {
+      imgEl.src = dataUrl;
+      imgEl.style.display = 'block';
+      placeholderEl.style.display = 'none';
+    } else {
+      // CORS block snap — pakai placeholder
+      imgEl.style.display = 'none';
+      placeholderEl.style.display = 'flex';
+    }
+  });
+}
+const GRAD_COLORS = ['#1a1a2e','#16213e','#0f3460','#1b1b2f','#162447','#1f4068','#1b262c','#2d132c'];
+function buildGrid(container, list) {
+  container.innerHTML = '';
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1">
+        <div class="empty-icon">🔖</div>
+        <p>Belum ada video yang disimpan</p>
+      </div>`;
+    return;
+  }
+  list.forEach((v, idx) => {
+    const item = document.createElement('div');
+    item.className = 'grid-item';
+    item.style.background = GRAD_COLORS[idx % GRAD_COLORS.length];
+
+    // img — hidden dulu
+    const img = document.createElement('img');
+    img.alt = v.title || '';
+    img.style.cssText = 'display:none;width:100%;height:100%;object-fit:cover;position:absolute;inset:0;';
+
+    // placeholder icon
+    const ph = document.createElement('div');
+    ph.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:38px;opacity:0.25;';
+    ph.textContent = '🎬';
+
+    item.appendChild(img);
+    item.appendChild(ph);
+
+    // Prioritas: 1) thumb di videos.js  2) auto-snap dari video src
+    const thumbUrl = v.thumb && v.thumb.trim();
+    const vidSrc   = v.src || '';
+
+    if (thumbUrl) {
+      img.src = thumbUrl;
+      img.onload  = () => { img.style.display = 'block'; ph.style.display = 'none'; };
+      img.onerror = () => {
+        img.style.display = 'none'; ph.style.display = 'flex';
+        if (vidSrc) setGridThumb(img, ph, vidSrc);
+      };
+    } else if (vidSrc) {
+      // Auto-snap dari video
+      setGridThumb(img, ph, vidSrc);
+    }
+
+    const overlay = document.createElement('div'); overlay.className = 'grid-overlay';
+    const title   = document.createElement('div'); title.className   = 'grid-title'; title.textContent = v.title || '';
+    const views   = document.createElement('div'); views.className   = 'grid-views'; views.textContent = v.views || '';
+
+    item.appendChild(overlay);
+    item.appendChild(title);
+    item.appendChild(views);
+
+    if (savedSet.has(v.id)) {
+      const badge = document.createElement('div');
+      badge.className = 'like-badge';
+      badge.innerHTML = `<svg viewBox="0 0 24 24" fill="#FFD700" width="16" height="16"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
+      item.appendChild(badge);
+    }
+
+    item.addEventListener('click', () => {
+      const idx2 = vlist.findIndex(x => x.id === v.id);
+      if (idx2 === -1) return;
+      switchPage('home');
+      if (idx2 !== current) { locked = false; goTo(idx2, true, false); }
+    });
+
+    container.appendChild(item);
+  });
+}
+
+function renderExplorePage() { buildGrid(document.getElementById('gridExplore'), vlist); }
+function renderSavedPage() {
+  const saved = vlist.filter(v => savedSet.has(v.id));
+  const container = document.getElementById('gridLikes');
+  if (saved.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1">
+        <div class="empty-icon">🔖</div>
+        <p>Belum ada video yang disimpan.<br>Tap bookmark untuk save!</p>
+      </div>`;
+    return;
+  }
+  buildGrid(container, saved);
+}
+
+// ── SEARCH ───────────────────────────────────────────────────────────────────
+function renderSearch(query) {
+  const q = query.trim().toLowerCase();
+  const result = q ? vlist.filter(v => (v.title || '').toLowerCase().includes(q)) : vlist;
+  buildGrid(document.getElementById('gridSearch'), result);
+}
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  renderSearch(e.target.value);
+});
+
+// ── PAGE SWITCHER ─────────────────────────────────────────────────────────────
+let currentPage = 'home';
+
+// Track apakah video sedang play saat user keluar ke menu lain
+let wasPlayingBeforeLeave = false;
+
+function switchPage(name) {
+  currentPage = name;
+
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.page === name);
+  });
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('logoHome').style.display  = name === 'home' ? '' : 'none';
+  document.getElementById('dots').style.display      = name === 'home' ? '' : 'none';
+  document.getElementById('swipeHint').style.display = name === 'home' ? '' : 'none';
+
+  if (name === 'home') {
+    // Balik ke home — resume video jika tadi sedang play dan bukan user pause
+    const vid = getVid(current);
+    if (wasPlayingBeforeLeave && !userPaused[current]) {
+      vid.muted = !interacted;
+      vid.play().catch(() => {});
+    }
+    wasPlayingBeforeLeave = false;
+    return;
+  }
+
+  // Keluar dari home — pause semua video, MUTE dulu sebelum pause
+  // Ini fix audio yang masih nyaring saat pindah halaman di Chrome Android
+  wasPlayingBeforeLeave = false;
+  slides.forEach((s, i) => {
+    const vid = s.querySelector('video');
+    if (!vid.paused) {
+      if (i === current) wasPlayingBeforeLeave = true;
+      vid.muted = true;  // mute dulu sebelum pause — fix audio ghost Chrome
+      vid.pause();
+    }
+  });
+
+  if (name === 'explore') {
+    renderExplorePage();
+    document.getElementById('pageExplore').classList.add('active');
+  } else if (name === 'search') {
+    renderSearch(document.getElementById('searchInput').value);
+    document.getElementById('pageSearch').classList.add('active');
+    setTimeout(() => document.getElementById('searchInput').focus(), 300);
+  } else if (name === 'likes') {
+    renderSavedPage();
+    document.getElementById('pageLikes').classList.add('active');
+  }
+}
+
+// Navbar click
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => switchPage(item.dataset.page));
+});
+</script>
+</body>
+</html>
