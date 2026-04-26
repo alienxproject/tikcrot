@@ -328,7 +328,7 @@ body {
 
 <div id="swipeHint">☝️ swipe up untuk next</div>
 <div id="dots"></div>
-<div id="feed"></div>
+<div id="feed" style="bottom:60px"></div>
 <div id="toast"></div>
 
 <!-- ═══ PAGES ═══ -->
@@ -384,43 +384,39 @@ body {
 <script src="data/videos.js"></script>
 <script>
 // ── FEED HEIGHT FIX ──────────────────────────────────────────────────────────
-// Chrome Android punya "dynamic toolbar" yang bisa muncul/sembunyi.
-// Saat toolbar muncul, window.innerHeight BERKURANG tapi CSS vh TIDAK berubah.
-// Fix: pakai visualViewport.height yang selalu akurat, set sebagai CSS var --vh.
-// Navbar bottom di-set JS setelah layout selesai.
+// Root cause blank: fixLayout() sync dipanggil sebelum browser selesai render CSS.
+// navbar.offsetHeight = 0 → feed.bottom = "0px" → feed cover seluruh layar
+// tapi slide tidak visible karena #feed height = 0.
+// Fix: pakai requestAnimationFrame agar dipanggil setelah browser paint pertama.
 
 function fixLayout() {
-  const vh   = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
-  document.documentElement.style.setProperty('--vh', (vh * 0.01) + 'px');
+  const navbar = document.getElementById('navbar');
+  const navH   = navbar.offsetHeight;
+  // Safety: kalau masih 0 (belum render), pakai 60px minimum
+  const safeNavH  = navH > 10 ? navH : 60;
+  const bottomVal = safeNavH + 'px';
 
-  const navbar   = document.getElementById('navbar');
-  const navH     = navbar.offsetHeight;
-  const bottomVal = navH + 'px';
-
-  // Feed dan pages: bottom = tepat di atas navbar
   document.getElementById('feed').style.bottom = bottomVal;
   document.querySelectorAll('.page').forEach(p => { p.style.bottom = bottomVal; });
 
-  // Hint harus di atas title+views (title: bottom 30px, views ~50px, buffer 30px)
-  // Total: navH + 30(title) + 30(views height) + 30(buffer) = navH + ~130px dari bawah layar
-  // Tapi hint posisinya dari bawah layar (fixed), bukan dari feed
-  // title ada di bawah feed = navH + 30px dari bawah layar → hint minimal navH + 110px
-  const aboveNav = navH + 150;
-  const hint = document.getElementById('swipeHint');
+  const hint  = document.getElementById('swipeHint');
   const toast = document.getElementById('toast');
-  if (hint)  hint.style.bottom  = aboveNav + 'px';
-  if (toast) toast.style.bottom = (navH + 20) + 'px';
+  if (hint)  hint.style.bottom  = (safeNavH + 150) + 'px';
+  if (toast) toast.style.bottom = (safeNavH + 20)  + 'px';
 }
 
-// Jalankan segera (sync) — navbar sudah di DOM saat script ini jalan
-fixLayout();
+// RAF = dipanggil setelah browser selesai layout & paint — tidak lagi sync
+requestAnimationFrame(() => {
+  fixLayout();
+  // Double RAF untuk Chrome Android yang butuh 2 frame
+  requestAnimationFrame(fixLayout);
+});
 
-// Update saat toolbar Chrome muncul/sembunyi (mengubah visualViewport.height)
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', fixLayout);
 }
-// Fallback untuk browser tanpa visualViewport
 window.addEventListener('resize', fixLayout);
+window.addEventListener('load', () => requestAnimationFrame(fixLayout));
 </script>
 <script>
 // ── GUARD ────────────────────────────────────────────────────────────────────
@@ -749,12 +745,17 @@ function playVid(i) {
 }
 
 function unloadFarVideos(idx) {
+  const len = vlist.length;
   slides.forEach((s, i) => {
-    const dist = Math.min(Math.abs(i - idx), total - Math.abs(i - idx));
-    if (dist > 2) {
+    const dist = Math.min(Math.abs(i - idx), len - Math.abs(i - idx));
+    if (dist > 3) { // naikkan threshold ke 3 agar lebih safe
       const v = s.querySelector('video');
       if (!v.paused) v.pause();
-      if (v.src) { v.dataset.src = v.src; v.removeAttribute('src'); v.load(); }
+      if (v.src && !v.src.endsWith('#')) {
+        v.dataset.src = v.src;
+        v.removeAttribute('src');
+        v.load();
+      }
     }
   });
 }
