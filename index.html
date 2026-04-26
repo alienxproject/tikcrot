@@ -662,7 +662,10 @@ function getVid(i) { return slides[i].querySelector('video'); }
 function ensureSrc(i) {
   if (i < 0 || i >= vlist.length) return;
   const v = getVid(i);
-  if (!v.src && v.dataset.src) v.src = v.dataset.src;
+  // Hanya set src kalau belum ada (jangan overwrite src yang sudah valid)
+  if (!v.src && v.dataset.src) {
+    v.src = v.dataset.src;
+  }
 }
 
 // ── STALL RECOVERY ───────────────────────────────────────────────────────────
@@ -699,6 +702,8 @@ function playVid(i) {
   v.muted = !interacted;
   if (finished[i]) { v.currentTime = 0; finished[i] = false; slides[i].querySelector('.prog-fill').style.width = '0%'; }
   if (!v.src && v.dataset.src) v.src = v.dataset.src;
+  // Pastikan src benar-benar ada sebelum load
+  if (!v.src) { console.warn('playVid: no src for index', i); return; }
   if (v.readyState === 0) {
     spinner.classList.add('show'); v.load();
     v.addEventListener('loadedmetadata', function onReady() {
@@ -716,14 +721,9 @@ function playVid(i) {
 }
 
 function unloadFarVideos(idx) {
-  slides.forEach((s, i) => {
-    const dist = Math.min(Math.abs(i - idx), vlist.length - Math.abs(i - idx));
-    if (dist > 2) {
-      const v = s.querySelector('video');
-      if (!v.paused) v.pause();
-      if (v.src) { v.dataset.src = v.src; v.removeAttribute('src'); v.load(); }
-    }
-  });
+  // Dimatikan — dengan preload=none, browser tidak load video yang tidak aktif.
+  // Manual unload justru bug: removeAttribute('src') + load() bisa bikin video stuck.
+  // Cukup pause video yang tidak aktif (sudah dilakukan di goTo).
 }
 
 // ── NAVIGATE ─────────────────────────────────────────────────────────────────
@@ -825,71 +825,126 @@ document.getElementById('logoHome').addEventListener('click', (e) => {
 //  NAVIGATION PAGES
 // ══════════════════════════════════════════════════════════════════════════════
 
-// ── CLOUDINARY THUMBNAIL GENERATOR ──────────────────────────────────────────
-// Generate thumbnail dari video URL via Cloudinary video/fetch.
-// Tidak perlu upload video — Cloudinary fetch & snap langsung dari URL sumber.
-// Tidak ada masalah CORS, tidak butuh canvas, tidak load seluruh video.
+// ── THUMBNAIL SYSTEM ─────────────────────────────────────────────────────────
+// Strategi berlapis — fallback otomatis jika satu cara gagal:
 //
-// Cara kerja:
-//   Cloudinary download video sumber, snap frame di detik ke-N,
-//   resize sesuai w/h, lalu kembalikan sebagai JPG.
-//   URL hasil di-cache secara otomatis oleh CDN Cloudinary.
+// Layer 1: field `thumb` di videos.js — kalau sudah diisi, langsung pakai
+// Layer 2: Snap dari <video> element feed yang sudah ada di DOM
+//          → tidak ada CORS issue karena video sudah di-load browser untuk playback
+//          → ini yang paling reliable untuk semua CDN
+// Layer 3: Cloudinary video/fetch — kalau fetch delivery sudah diaktifkan di akun
+// Layer 4: Placeholder gradient + icon 🎬
 //
-// ── CONTOH PENGGUNAAN ──────────────────────────────────────────────────────
+// ── Cara pakai Cloudinary (opsional, kalau fetch sudah aktif di akun) ──────────
 //
-//   // 1. Paling simpel — pakai default (360x640, detik ke-3)
-//   const url = cloudinaryThumb('https://cdn.videy.co/abc123.mp4');
+//   const CLOUDINARY_CLOUD = 'dqp9grk3s';
 //
-//   // 2. Custom ukuran dan waktu frame
-//   const url = cloudinaryThumb('https://cdn.videy.co/abc123.mp4', {
-//     width: 200, height: 300, time: '5', quality: 80
-//   });
+//   function cloudinaryThumb(videoUrl, opts) {
+//     opts = opts || {};
+//     var encoded = encodeURIComponent(videoUrl);
+//     return 'https://res.cloudinary.com/' + CLOUDINARY_CLOUD
+//       + '/video/fetch/w_' + (opts.width||360)
+//       + ',h_' + (opts.height||640)
+//       + ',c_fill,q_' + (opts.quality||'auto')
+//       + ',so_' + (opts.time||'3')
+//       + '/' + encoded + '.jpg';
+//   }
 //
-//   // 3. Langsung pakai di img element
-//   document.querySelector('img').src =
-//     cloudinaryThumb('https://cdn.videy.co/abc123.mp4');
+//   Contoh: cloudinaryThumb('https://cdn.videy.co/abc.mp4')
+//   Contoh: cloudinaryThumb('https://cdn.videy.co/abc.mp4', { time: '5', width: 200 })
 //
-//   // 4. Pakai di poster video
-//   videoElement.poster =
-//     cloudinaryThumb(videoElement.src, { time: '2' });
-//
-// ── PARAMETER ──────────────────────────────────────────────────────────────
-//   videoUrl  : URL penuh video (mp4, webm, dll)
-//   opts.width  : lebar thumbnail px (default: 360)
-//   opts.height : tinggi thumbnail px (default: 640)
-//   opts.time   : detik ke berapa frame di-snap (default: '3')
-//   opts.quality: kualitas JPG 1-100 atau 'auto' (default: 'auto')
-//
-const CLOUDINARY_CLOUD = 'dqp9grk3s';
+// ─────────────────────────────────────────────────────────────────────────────
 
-function cloudinaryThumb(videoUrl, opts) {
-  if (!videoUrl) return '';
-  opts = opts || {};
-  var width   = opts.width   || 360;
-  var height  = opts.height  || 640;
-  var time    = opts.time    || '3';
-  var quality = opts.quality || 'auto';
+const thumbCache = {}; // { videoSrc: dataURL } — cache agar tidak snap ulang
 
-  // encodeURIComponent wajib — URL video mengandung '/', ':', '?' yang harus di-escape
-  // agar tidak salah diparse sebagai bagian dari URL Cloudinary
-  var encoded = encodeURIComponent(videoUrl);
+// Snap 1 frame dari <video> element yang ada di DOM feed
+// Tidak pakai crossOrigin — video sudah di-load browser tanpa CORS untuk playback
+function snapFromFeedVideo(vidEl, callback) {
+  if (!vidEl) { callback(null); return; }
 
-  // Format URL Cloudinary video/fetch:
-  // /video/fetch/{transformasi}/{encoded_video_url}.jpg
-  // so_N = start_offset → frame yang di-snap (detik ke-N)
-  // c_fill = crop mode fill agar pas dengan w x h tanpa distorsi
-  return 'https://res.cloudinary.com/' + CLOUDINARY_CLOUD +
-    '/video/fetch/w_' + width + ',h_' + height +
-    ',c_fill,q_' + quality + ',so_' + time +
-    '/' + encoded + '.jpg';
+  function doSnap() {
+    try {
+      var canvas = document.createElement('canvas');
+      canvas.width  = 180;
+      canvas.height = 320;
+      canvas.getContext('2d').drawImage(vidEl, 0, 0, 180, 320);
+      var dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+      // Cek hasil valid (bukan blank canvas)
+      if (dataUrl && dataUrl.length > 1000) {
+        callback(dataUrl);
+      } else {
+        callback(null);
+      }
+    } catch(e) {
+      callback(null); // CORS atau security error
+    }
+  }
+
+  // Kalau video sudah punya frame (readyState >= 2 & currentTime > 0)
+  if (vidEl.readyState >= 2 && vidEl.currentTime > 0) {
+    doSnap();
+    return;
+  }
+
+  // Kalau video belum punya frame — seek ke detik ke-2 lalu snap
+  var prevTime = vidEl.currentTime;
+  var done = false;
+  function onSeeked() {
+    if (done) return; done = true;
+    vidEl.removeEventListener('seeked', onSeeked);
+    vidEl.removeEventListener('error', onErr);
+    doSnap();
+    // Kembalikan posisi asli agar playback tidak terganggu
+    vidEl.currentTime = prevTime;
+  }
+  function onErr() {
+    if (done) return; done = true;
+    vidEl.removeEventListener('seeked', onSeeked);
+    vidEl.removeEventListener('error', onErr);
+    callback(null);
+  }
+  vidEl.addEventListener('seeked', onSeeked, { once: true });
+  vidEl.addEventListener('error',  onErr,    { once: true });
+
+  // Trigger seek — kalau video belum load sama sekali, load dulu
+  if (!vidEl.src && vidEl.dataset.src) {
+    vidEl.src = vidEl.dataset.src;
+  }
+  if (vidEl.readyState === 0) {
+    vidEl.load();
+    vidEl.addEventListener('loadeddata', function ld() {
+      vidEl.removeEventListener('loadeddata', ld);
+      vidEl.currentTime = Math.min(2, vidEl.duration * 0.1 || 2);
+    }, { once: true });
+  } else {
+    vidEl.currentTime = Math.min(2, vidEl.duration * 0.1 || 2);
+  }
 }
 
-// resolveThumb: ambil thumbnail terbaik untuk sebuah video
-// Prioritas: 1) field thumb di videos.js  2) Cloudinary auto-snap dari src
-function resolveThumb(v) {
-  if (v.thumb && v.thumb.trim()) return v.thumb.trim();
-  if (v.src   && v.src.trim())  return cloudinaryThumb(v.src.trim());
-  return '';
+// Set thumbnail ke grid item — coba snap dari feed video
+function setThumbFromFeed(vData, imgEl, phEl) {
+  // Cek cache dulu
+  const key = vData.src || vData.id;
+  if (thumbCache[key]) {
+    imgEl.src = thumbCache[key];
+    imgEl.style.display = 'block';
+    phEl.style.display = 'none';
+    return;
+  }
+
+  // Cari video element di feed yang punya src sama
+  const idx = vlist.findIndex(x => x.id === vData.id);
+  const vidEl = idx >= 0 ? slides[idx]?.querySelector('video') : null;
+
+  snapFromFeedVideo(vidEl, function(dataUrl) {
+    if (dataUrl) {
+      thumbCache[key] = dataUrl;
+      imgEl.src = dataUrl;
+      imgEl.style.display = 'block';
+      phEl.style.display = 'none';
+    }
+    // Kalau null → placeholder tetap tampil
+  });
 }
 const GRAD_COLORS = ['#1a1a2e','#16213e','#0f3460','#1b1b2f','#162447','#1f4068','#1b262c','#2d132c'];
 function buildGrid(container, list) {
@@ -920,14 +975,21 @@ function buildGrid(container, list) {
     item.appendChild(img);
     item.appendChild(ph);
 
-    // Prioritas: 1) thumb di videos.js  2) Cloudinary auto-snap dari src video
-    // resolveThumb() handle keduanya secara otomatis
-    const thumbUrl = resolveThumb(v);
-    if (thumbUrl) {
-      img.src     = thumbUrl;
+    // Thumbnail: 1) thumb di videos.js langsung pakai
+    //            2) kalau kosong → snap dari feed video element
+    if (v.thumb && v.thumb.trim()) {
+      img.src     = v.thumb.trim();
       img.loading = 'lazy';
       img.onload  = () => { img.style.display = 'block'; ph.style.display = 'none'; };
-      img.onerror = () => { img.style.display = 'none'; ph.style.display = 'flex'; };
+      img.onerror = () => {
+        img.onerror = null;
+        // URL thumb gagal → fallback snap dari feed
+        setThumbFromFeed(v, img, ph);
+      };
+    } else {
+      // Tidak ada thumb → snap otomatis dari feed video
+      // Pakai setTimeout kecil agar slides[] sudah penuh semua dulu
+      setTimeout(() => setThumbFromFeed(v, img, ph), 50);
     }
 
     const overlay = document.createElement('div'); overlay.className = 'grid-overlay';
