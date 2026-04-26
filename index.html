@@ -410,14 +410,16 @@ function fixLayout() {
   if (toast) toast.style.bottom = (navH + 20) + 'px';
 }
 
-// Jalankan segera (sync) — navbar sudah di DOM saat script ini jalan
-fixLayout();
-
-// Update saat toolbar Chrome muncul/sembunyi (mengubah visualViewport.height)
+// RAF: dipanggil setelah browser selesai layout & paint
+// Mencegah navbar.offsetHeight = 0 yang bikin feed blank
+requestAnimationFrame(function() {
+  fixLayout();
+  requestAnimationFrame(fixLayout); // double RAF untuk Chrome Android
+});
+window.addEventListener('load', function() { requestAnimationFrame(fixLayout); });
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', fixLayout);
 }
-// Fallback untuk browser tanpa visualViewport
 window.addEventListener('resize', fixLayout);
 </script>
 <script>
@@ -456,14 +458,13 @@ function showToast(msg) {
 }
 
 // ── STATE ────────────────────────────────────────────────────────────────────
-// Shuffle semua video lalu ambil 10 pertama → selalu random tiap refresh
-const vlist      = shuffle(videos).slice(0, 10);
-const total      = vlist.length;
+// Shuffle semua video — tampilkan semua tanpa batas
+const vlist      = shuffle(videos);
 let current      = 0;
 let locked       = false;
 let interacted   = false;
-const finished   = new Array(total).fill(false);
-const userPaused = new Array(total).fill(false);
+const finished   = new Array(vlist.length).fill(false);
+const userPaused = new Array(vlist.length).fill(false);
 
 // Saved — simpan di localStorage supaya persist antar session
 let savedSet = new Set(JSON.parse(localStorage.getItem('tiktod_saves') || '[]'));
@@ -575,7 +576,7 @@ vlist.forEach((v, i) => {
   vid.addEventListener('ended', () => {
     if (i !== current) return;
     finished[i] = true; locked = false;
-    goTo((current + 1) % total, false, false);
+    goTo((current + 1) % vlist.length, false, false);
   });
 
   // Single tap → play/pause (tidak ada double tap logic)
@@ -659,13 +660,13 @@ vlist.forEach((_, i) => {
 // ── HELPERS ──────────────────────────────────────────────────────────────────
 function getVid(i) { return slides[i].querySelector('video'); }
 function ensureSrc(i) {
-  if (i < 0 || i >= total) return;
+  if (i < 0 || i >= vlist.length) return;
   const v = getVid(i);
   if (!v.src && v.dataset.src) v.src = v.dataset.src;
 }
 
 // ── STALL RECOVERY ───────────────────────────────────────────────────────────
-const stallTimers = new Array(total).fill(null);
+const stallTimers = new Array(vlist.length).fill(null);
 const STALL_MS    = 5000;
 function clearStall(i) { if (stallTimers[i]) { clearTimeout(stallTimers[i]); stallTimers[i] = null; } }
 function startStallWatch(i) {
@@ -716,7 +717,7 @@ function playVid(i) {
 
 function unloadFarVideos(idx) {
   slides.forEach((s, i) => {
-    const dist = Math.min(Math.abs(i - idx), total - Math.abs(i - idx));
+    const dist = Math.min(Math.abs(i - idx), vlist.length - Math.abs(i - idx));
     if (dist > 2) {
       const v = s.querySelector('video');
       if (!v.paused) v.pause();
@@ -740,7 +741,7 @@ function goTo(next, force, isUserSwipe) {
   current = next;
   slides[current].classList.add('active');
   dotsEl.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === current));
-  ensureSrc(current); ensureSrc((current + 1) % total);
+  ensureSrc(current); ensureSrc((current + 1) % vlist.length);
   unloadFarVideos(current);
   if (current === 0 && !interacted) {
     const pi = slides[0].querySelector('.play-icon');
@@ -781,14 +782,14 @@ feed.addEventListener('touchend', (e) => {
   const dy = ty - e.changedTouches[0].clientY, vel = Math.abs(dy) / Math.max(Date.now() - tt, 1);
   if (Math.abs(dy) < 40 && vel < 0.3) return;
   interacted = true; dismissHint();
-  goTo(dy > 0 ? (current + 1) % total : (current - 1 + total) % total, false, true);
+  goTo(dy > 0 ? (current + 1) % vlist.length : (current - 1 + total) % vlist.length, false, true);
 }, { passive: true });
 
 // ── KEYBOARD ─────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {
   if (locked) return;
-  if (e.key === 'ArrowDown') { dismissHint(); goTo((current + 1) % total, false, true); }
-  if (e.key === 'ArrowUp')   { goTo((current - 1 + total) % total, false, true); }
+  if (e.key === 'ArrowDown') { dismissHint(); goTo((current + 1) % vlist.length, false, true); }
+  if (e.key === 'ArrowUp')   { goTo((current - 1 + total) % vlist.length, false, true); }
   if (e.key === ' ')         { e.preventDefault(); slides[current].click(); }
 });
 
@@ -799,7 +800,7 @@ feed.addEventListener('wheel', (e) => {
   if (locked || wc) return;
   wc = true; setTimeout(() => wc = false, 420);
   dismissHint();
-  goTo(e.deltaY > 0 ? (current + 1) % total : (current - 1 + total) % total, false, true);
+  goTo(e.deltaY > 0 ? (current + 1) % vlist.length : (current - 1 + total) % vlist.length, false, true);
 }, { passive: false });
 
 // ── CONTEXT MENU BLOCK ───────────────────────────────────────────────────────
@@ -824,64 +825,71 @@ document.getElementById('logoHome').addEventListener('click', (e) => {
 //  NAVIGATION PAGES
 // ══════════════════════════════════════════════════════════════════════════════
 
-// ── AUTO THUMBNAIL GENERATOR ─────────────────────────────────────────────────
-// Snap frame dari video menggunakan canvas — tidak perlu URL jpg sama sekali.
-// Cache thumbnail di memori (thumbCache) supaya tidak di-generate ulang tiap render.
-const thumbCache = {}; // { videoId: dataURL }
+// ── CLOUDINARY THUMBNAIL GENERATOR ──────────────────────────────────────────
+// Generate thumbnail dari video URL via Cloudinary video/fetch.
+// Tidak perlu upload video — Cloudinary fetch & snap langsung dari URL sumber.
+// Tidak ada masalah CORS, tidak butuh canvas, tidak load seluruh video.
+//
+// Cara kerja:
+//   Cloudinary download video sumber, snap frame di detik ke-N,
+//   resize sesuai w/h, lalu kembalikan sebagai JPG.
+//   URL hasil di-cache secara otomatis oleh CDN Cloudinary.
+//
+// ── CONTOH PENGGUNAAN ──────────────────────────────────────────────────────
+//
+//   // 1. Paling simpel — pakai default (360x640, detik ke-3)
+//   const url = cloudinaryThumb('https://cdn.videy.co/abc123.mp4');
+//
+//   // 2. Custom ukuran dan waktu frame
+//   const url = cloudinaryThumb('https://cdn.videy.co/abc123.mp4', {
+//     width: 200, height: 300, time: '5', quality: 80
+//   });
+//
+//   // 3. Langsung pakai di img element
+//   document.querySelector('img').src =
+//     cloudinaryThumb('https://cdn.videy.co/abc123.mp4');
+//
+//   // 4. Pakai di poster video
+//   videoElement.poster =
+//     cloudinaryThumb(videoElement.src, { time: '2' });
+//
+// ── PARAMETER ──────────────────────────────────────────────────────────────
+//   videoUrl  : URL penuh video (mp4, webm, dll)
+//   opts.width  : lebar thumbnail px (default: 360)
+//   opts.height : tinggi thumbnail px (default: 640)
+//   opts.time   : detik ke berapa frame di-snap (default: '3')
+//   opts.quality: kualitas JPG 1-100 atau 'auto' (default: 'auto')
+//
+const CLOUDINARY_CLOUD = 'dqp9grk3s';
 
-function generateThumb(src, callback) {
-  // Gunakan cache kalau sudah pernah di-generate
-  const key = src;
-  if (thumbCache[key]) { callback(thumbCache[key]); return; }
+function cloudinaryThumb(videoUrl, opts) {
+  if (!videoUrl) return '';
+  opts = opts || {};
+  var width   = opts.width   || 360;
+  var height  = opts.height  || 640;
+  var time    = opts.time    || '3';
+  var quality = opts.quality || 'auto';
 
-  const v = document.createElement('video');
-  v.crossOrigin  = 'anonymous';
-  v.muted        = true;
-  v.preload      = 'metadata';
-  v.playsInline  = true;
+  // encodeURIComponent wajib — URL video mengandung '/', ':', '?' yang harus di-escape
+  // agar tidak salah diparse sebagai bagian dari URL Cloudinary
+  var encoded = encodeURIComponent(videoUrl);
 
-  v.addEventListener('loadedmetadata', () => {
-    // Seek ke 10% durasi untuk dapat frame yang lebih menarik
-    v.currentTime = Math.max(0.5, v.duration * 0.1);
-  }, { once: true });
-
-  v.addEventListener('seeked', () => {
-    try {
-      const canvas = document.createElement('canvas');
-      // Resolusi kecil untuk hemat memory — 180x320 cukup untuk grid thumbnail
-      canvas.width  = 180;
-      canvas.height = 320;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-      thumbCache[key] = dataUrl;
-      callback(dataUrl);
-    } catch (e) {
-      // CORS atau error lain → callback null, pakai placeholder
-      callback(null);
-    }
-    v.src = ''; // bebaskan memory
-  }, { once: true });
-
-  v.addEventListener('error', () => callback(null), { once: true });
-
-  v.src = src;
+  // Format URL Cloudinary video/fetch:
+  // /video/fetch/{transformasi}/{encoded_video_url}.jpg
+  // so_N = start_offset → frame yang di-snap (detik ke-N)
+  // c_fill = crop mode fill agar pas dengan w x h tanpa distorsi
+  return 'https://res.cloudinary.com/' + CLOUDINARY_CLOUD +
+    '/video/fetch/w_' + width + ',h_' + height +
+    ',c_fill,q_' + quality + ',so_' + time +
+    '/' + encoded + '.jpg';
 }
 
-// Set thumbnail ke elemen img di grid, dengan fallback placeholder
-function setGridThumb(imgEl, placeholderEl, src, title) {
-  if (!src) { placeholderEl.style.display = 'flex'; return; }
-  generateThumb(src, (dataUrl) => {
-    if (dataUrl) {
-      imgEl.src = dataUrl;
-      imgEl.style.display = 'block';
-      placeholderEl.style.display = 'none';
-    } else {
-      // CORS block snap — pakai placeholder
-      imgEl.style.display = 'none';
-      placeholderEl.style.display = 'flex';
-    }
-  });
+// resolveThumb: ambil thumbnail terbaik untuk sebuah video
+// Prioritas: 1) field thumb di videos.js  2) Cloudinary auto-snap dari src
+function resolveThumb(v) {
+  if (v.thumb && v.thumb.trim()) return v.thumb.trim();
+  if (v.src   && v.src.trim())  return cloudinaryThumb(v.src.trim());
+  return '';
 }
 const GRAD_COLORS = ['#1a1a2e','#16213e','#0f3460','#1b1b2f','#162447','#1f4068','#1b262c','#2d132c'];
 function buildGrid(container, list) {
@@ -912,20 +920,14 @@ function buildGrid(container, list) {
     item.appendChild(img);
     item.appendChild(ph);
 
-    // Prioritas: 1) thumb di videos.js  2) auto-snap dari video src
-    const thumbUrl = v.thumb && v.thumb.trim();
-    const vidSrc   = v.src || '';
-
+    // Prioritas: 1) thumb di videos.js  2) Cloudinary auto-snap dari src video
+    // resolveThumb() handle keduanya secara otomatis
+    const thumbUrl = resolveThumb(v);
     if (thumbUrl) {
-      img.src = thumbUrl;
+      img.src     = thumbUrl;
+      img.loading = 'lazy';
       img.onload  = () => { img.style.display = 'block'; ph.style.display = 'none'; };
-      img.onerror = () => {
-        img.style.display = 'none'; ph.style.display = 'flex';
-        if (vidSrc) setGridThumb(img, ph, vidSrc);
-      };
-    } else if (vidSrc) {
-      // Auto-snap dari video
-      setGridThumb(img, ph, vidSrc);
+      img.onerror = () => { img.style.display = 'none'; ph.style.display = 'flex'; };
     }
 
     const overlay = document.createElement('div'); overlay.className = 'grid-overlay';
@@ -954,6 +956,7 @@ function buildGrid(container, list) {
   });
 }
 
+// Explore: tampilkan semua video (dari array asli, sudah di-shuffle ke vlist)
 function renderExplorePage() { buildGrid(document.getElementById('gridExplore'), vlist); }
 function renderSavedPage() {
   const saved = vlist.filter(v => savedSet.has(v.id));
@@ -972,7 +975,7 @@ function renderSavedPage() {
 // ── SEARCH ───────────────────────────────────────────────────────────────────
 function renderSearch(query) {
   const q = query.trim().toLowerCase();
-  const result = q ? vlist.filter(v => (v.title || '').toLowerCase().includes(q)) : vlist;
+  const result = q ? vlist.filter(v => (v.title || '').toLowerCase().includes(q) || (v.views || '').toLowerCase().includes(q)) : vlist;
   buildGrid(document.getElementById('gridSearch'), result);
 }
 
@@ -1002,23 +1005,23 @@ function switchPage(name) {
     // Balik ke home — resume video jika tadi sedang play dan bukan user pause
     const vid = getVid(current);
     if (wasPlayingBeforeLeave && !userPaused[current]) {
-      vid.muted = !interacted;
+      vid.volume = 1;
+      vid.muted  = !interacted;
       vid.play().catch(() => {});
     }
     wasPlayingBeforeLeave = false;
     return;
   }
 
-  // Keluar dari home — pause semua video, MUTE dulu sebelum pause
-  // Ini fix audio yang masih nyaring saat pindah halaman di Chrome Android
+  // Keluar dari home — volume=0 + muted + pause
+  // volume=0 adalah double-kill untuk Chrome Android audio ghost
   wasPlayingBeforeLeave = false;
   slides.forEach((s, i) => {
     const vid = s.querySelector('video');
-    if (!vid.paused) {
-      if (i === current) wasPlayingBeforeLeave = true;
-      vid.muted = true;  // mute dulu sebelum pause — fix audio ghost Chrome
-      vid.pause();
-    }
+    if (!vid.paused && i === current) wasPlayingBeforeLeave = true;
+    vid.volume = 0;
+    vid.muted  = true;
+    vid.pause();
   });
 
   if (name === 'explore') {
