@@ -187,7 +187,7 @@ body {
   50%      { transform: translateX(-50%) translateY(-8px); }
 }
 
-/* Side dots — disembunyikan */
+/* Side dots — disembunyikan permanent */
 #dots { display: none !important; }
 
 /* ═══════════════════════════════════════════
@@ -328,7 +328,7 @@ body {
 
 <div id="swipeHint">☝️ swipe up untuk next</div>
 <div id="dots"></div>
-<div id="feed"></div>
+<div id="feed" style="bottom:60px"></div>
 <div id="toast"></div>
 
 <!-- ═══ PAGES ═══ -->
@@ -384,41 +384,39 @@ body {
 <script src="data/videos.js"></script>
 <script>
 // ── FEED HEIGHT FIX ──────────────────────────────────────────────────────────
-// Chrome Android punya "dynamic toolbar" yang bisa muncul/sembunyi.
-// Saat toolbar muncul, window.innerHeight BERKURANG tapi CSS vh TIDAK berubah.
-// Fix: pakai visualViewport.height yang selalu akurat, set sebagai CSS var --vh.
-// Navbar bottom di-set JS setelah layout selesai.
+// Root cause blank: fixLayout() sync dipanggil sebelum browser selesai render CSS.
+// navbar.offsetHeight = 0 → feed.bottom = "0px" → feed cover seluruh layar
+// tapi slide tidak visible karena #feed height = 0.
+// Fix: pakai requestAnimationFrame agar dipanggil setelah browser paint pertama.
 
 function fixLayout() {
-  const vh   = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
-  document.documentElement.style.setProperty('--vh', (vh * 0.01) + 'px');
+  const navbar = document.getElementById('navbar');
+  const navH   = navbar.offsetHeight;
+  // Safety: kalau masih 0 (belum render), pakai 60px minimum
+  const safeNavH  = navH > 10 ? navH : 60;
+  const bottomVal = safeNavH + 'px';
 
-  const navbar   = document.getElementById('navbar');
-  const navH     = navbar.offsetHeight;
-  const bottomVal = navH + 'px';
-
-  // Feed dan pages: bottom = tepat di atas navbar
   document.getElementById('feed').style.bottom = bottomVal;
   document.querySelectorAll('.page').forEach(p => { p.style.bottom = bottomVal; });
 
-  // Hint lebih tinggi dari title (title ada di ~30-60px dari bawah feed)
-  // Naruh hint di atas title dengan buffer 90px dari atas navbar
-  const aboveNav = navH + 100;
-  const hint = document.getElementById('swipeHint');
+  const hint  = document.getElementById('swipeHint');
   const toast = document.getElementById('toast');
-  if (hint)  hint.style.bottom  = aboveNav + 'px';
-  if (toast) toast.style.bottom = (navH + 20) + 'px';
+  if (hint)  hint.style.bottom  = (safeNavH + 150) + 'px';
+  if (toast) toast.style.bottom = (safeNavH + 20)  + 'px';
 }
 
-// Jalankan segera (sync) — navbar sudah di DOM saat script ini jalan
-fixLayout();
+// RAF = dipanggil setelah browser selesai layout & paint — tidak lagi sync
+requestAnimationFrame(() => {
+  fixLayout();
+  // Double RAF untuk Chrome Android yang butuh 2 frame
+  requestAnimationFrame(fixLayout);
+});
 
-// Update saat toolbar Chrome muncul/sembunyi (mengubah visualViewport.height)
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', fixLayout);
 }
-// Fallback untuk browser tanpa visualViewport
 window.addEventListener('resize', fixLayout);
+window.addEventListener('load', () => requestAnimationFrame(fixLayout));
 </script>
 <script>
 // ── GUARD ────────────────────────────────────────────────────────────────────
@@ -457,7 +455,7 @@ function showToast(msg) {
 
 // ── STATE ────────────────────────────────────────────────────────────────────
 // Shuffle semua video lalu ambil 10 pertama → selalu random tiap refresh
-const vlist      = shuffle(videos).slice(0, 10);
+const vlist      = shuffle(videos).slice(0, 20);
 const total      = vlist.length;
 let current      = 0;
 let locked       = false;
@@ -478,7 +476,9 @@ const swipeHint = document.getElementById('swipeHint');
 const slides  = [];
 
 // ── BUILD FEED DOM ────────────────────────────────────────────────────────────
-vlist.forEach((v, i) => {
+
+// Fungsi build 1 slide — bisa dipanggil untuk feed awal maupun tambah dinamis
+function buildSlide(v, i, isFirst) {
   const slide = document.createElement('div');
   slide.className = 'slide';
 
@@ -487,7 +487,7 @@ vlist.forEach((v, i) => {
   vid.setAttribute('webkit-playsinline', '');
   vid.muted = true; vid.preload = 'none'; vid.loop = false;
   if (v.thumb) vid.poster = v.thumb;
-  if (i === 0) { vid.src = v.src; vid.preload = 'metadata'; }
+  if (isFirst) { vid.src = v.src; vid.preload = 'metadata'; }
   else          vid.dataset.src = v.src;
 
   // Info
@@ -543,10 +543,13 @@ vlist.forEach((v, i) => {
   slide.appendChild(playIcon);
   slide.appendChild(spinner);
   slide.appendChild(sideActions);
-  feed.appendChild(slide);
-  slides.push(slide);
 
-  // ── EVENTS ──
+  // Return slide — caller yang append ke feed & push ke slides
+  return { slide, vid, progFill, playIcon, spinner, saveBtn, dlBtn, progWrap };
+}
+
+// Fungsi attach events — harus dideklarasikan SEBELUM dipanggil forEach
+function attachSlideEvents(v, i, vid, progFill, playIcon, spinner, saveBtn, dlBtn, progWrap) {
 
   vid.addEventListener('timeupdate', () => {
     if (vid.duration) progFill.style.width = (vid.currentTime / vid.duration * 100) + '%';
@@ -575,7 +578,7 @@ vlist.forEach((v, i) => {
   vid.addEventListener('ended', () => {
     if (i !== current) return;
     finished[i] = true; locked = false;
-    goTo((current + 1) % total, false, false);
+    goTo((current + 1) % vlist.length, false, false);
   });
 
   // Single tap → play/pause (tidak ada double tap logic)
@@ -620,17 +623,44 @@ vlist.forEach((v, i) => {
     if (!vid.duration) return;
     vid.currentTime = ((e.clientX - progWrap.getBoundingClientRect().left) / progWrap.offsetWidth) * vid.duration;
   });
+} // end attachSlideEvents
+
+// Build semua slide awal dari vlist — dipanggil SETELAH fungsi dideklarasikan
+vlist.forEach((v, i) => {
+  const { slide, vid, progFill, playIcon, spinner, saveBtn, dlBtn, progWrap } = buildSlide(v, i, i === 0);
+  feed.appendChild(slide);
+  slides.push(slide);
+  attachSlideEvents(v, i, vid, progFill, playIcon, spinner, saveBtn, dlBtn, progWrap);
 });
+
+// ── ADD VIDEO KE FEED SECARA DINAMIS ─────────────────────────────────────────
+// Dipanggil saat user klik video dari explore/search yang tidak ada di home feed
+function addVideoToFeed(v) {
+  const i = slides.length; // index baru = setelah slide terakhir
+  vlist.push(v);            // tambah ke vlist supaya goTo bisa akses
+
+  // Extend array state
+  finished.push(false);
+  userPaused.push(false);
+  stallTimers.push(null);
+
+  const { slide, vid, progFill, playIcon, spinner, saveBtn, dlBtn, progWrap } = buildSlide(v, i, false);
+  feed.appendChild(slide);
+  slides.push(slide);
+  attachSlideEvents(v, i, vid, progFill, playIcon, spinner, saveBtn, dlBtn, progWrap);
+
+  return i; // kembalikan index slide baru
+}
 
 // ── SAVE LOGIC ───────────────────────────────────────────────────────────────
 const ICON_SAVE_OFF_TPL = `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
 const ICON_SAVE_ON_TPL  = `<svg viewBox="0 0 24 24" fill="#FFD700" stroke="#FFD700" stroke-width="2" width="22" height="22"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
 
 function triggerSave(i, saveBtn) {
-  const v = vlist[i];
+  const v      = vlist[i];
   const isSaved = savedSet.has(v.id);
-  const icon  = saveBtn.querySelector('.action-icon');
-  const label = saveBtn.querySelector('.save-label');
+  const icon   = saveBtn.querySelector('.action-icon');
+  const label  = saveBtn.querySelector('.save-label');
 
   if (isSaved) {
     savedSet.delete(v.id);
@@ -659,7 +689,7 @@ vlist.forEach((_, i) => {
 // ── HELPERS ──────────────────────────────────────────────────────────────────
 function getVid(i) { return slides[i].querySelector('video'); }
 function ensureSrc(i) {
-  if (i < 0 || i >= total) return;
+  if (i < 0 || i >= vlist.length) return;
   const v = getVid(i);
   if (!v.src && v.dataset.src) v.src = v.dataset.src;
 }
@@ -715,12 +745,17 @@ function playVid(i) {
 }
 
 function unloadFarVideos(idx) {
+  const len = vlist.length;
   slides.forEach((s, i) => {
-    const dist = Math.min(Math.abs(i - idx), total - Math.abs(i - idx));
-    if (dist > 2) {
+    const dist = Math.min(Math.abs(i - idx), len - Math.abs(i - idx));
+    if (dist > 3) { // naikkan threshold ke 3 agar lebih safe
       const v = s.querySelector('video');
       if (!v.paused) v.pause();
-      if (v.src) { v.dataset.src = v.src; v.removeAttribute('src'); v.load(); }
+      if (v.src && !v.src.endsWith('#')) {
+        v.dataset.src = v.src;
+        v.removeAttribute('src');
+        v.load();
+      }
     }
   });
 }
@@ -740,7 +775,7 @@ function goTo(next, force, isUserSwipe) {
   current = next;
   slides[current].classList.add('active');
   dotsEl.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === current));
-  ensureSrc(current); ensureSrc((current + 1) % total);
+  ensureSrc(current); ensureSrc((current + 1) % vlist.length);
   unloadFarVideos(current);
   if (current === 0 && !interacted) {
     const pi = slides[0].querySelector('.play-icon');
@@ -781,14 +816,14 @@ feed.addEventListener('touchend', (e) => {
   const dy = ty - e.changedTouches[0].clientY, vel = Math.abs(dy) / Math.max(Date.now() - tt, 1);
   if (Math.abs(dy) < 40 && vel < 0.3) return;
   interacted = true; dismissHint();
-  goTo(dy > 0 ? (current + 1) % total : (current - 1 + total) % total, false, true);
+  goTo(dy > 0 ? (current + 1) % vlist.length : (current - 1 + vlist.length) % vlist.length, false, true);
 }, { passive: true });
 
 // ── KEYBOARD ─────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {
   if (locked) return;
-  if (e.key === 'ArrowDown') { dismissHint(); goTo((current + 1) % total, false, true); }
-  if (e.key === 'ArrowUp')   { goTo((current - 1 + total) % total, false, true); }
+  if (e.key === 'ArrowDown') { dismissHint(); goTo((current + 1) % vlist.length, false, true); }
+  if (e.key === 'ArrowUp')   { goTo((current - 1 + vlist.length) % vlist.length, false, true); }
   if (e.key === ' ')         { e.preventDefault(); slides[current].click(); }
 });
 
@@ -799,7 +834,7 @@ feed.addEventListener('wheel', (e) => {
   if (locked || wc) return;
   wc = true; setTimeout(() => wc = false, 420);
   dismissHint();
-  goTo(e.deltaY > 0 ? (current + 1) % total : (current - 1 + total) % total, false, true);
+  goTo(e.deltaY > 0 ? (current + 1) % vlist.length : (current - 1 + vlist.length) % vlist.length, false, true);
 }, { passive: false });
 
 // ── CONTEXT MENU BLOCK ───────────────────────────────────────────────────────
@@ -824,72 +859,41 @@ document.getElementById('logoHome').addEventListener('click', (e) => {
 //  NAVIGATION PAGES
 // ══════════════════════════════════════════════════════════════════════════════
 
-// ── AUTO THUMBNAIL GENERATOR ─────────────────────────────────────────────────
-// Snap frame dari video menggunakan canvas — tidak perlu URL jpg sama sekali.
-// Cache thumbnail di memori (thumbCache) supaya tidak di-generate ulang tiap render.
-const thumbCache = {}; // { videoId: dataURL }
+// ── CLOUDINARY THUMBNAIL GENERATOR ──────────────────────────────────────────
+// Generate thumbnail dari video URL via Cloudinary video/fetch.
+// Tidak perlu upload — Cloudinary fetch & transform langsung dari URL sumber.
+//
+// Contoh penggunaan:
+//   const thumbUrl = cloudinaryThumb('https://cdn.videy.co/abc.mp4');
+//   const thumbUrl = cloudinaryThumb('https://cdn.videy.co/abc.mp4', { width: 400, height: 600, time: '5' });
+//
+const CLOUDINARY_CLOUD = 'dqp9grk3s';
 
-function generateThumb(src, callback) {
-  // Gunakan cache kalau sudah pernah di-generate
-  const key = src;
-  if (thumbCache[key]) { callback(thumbCache[key]); return; }
-
-  const v = document.createElement('video');
-  v.crossOrigin  = 'anonymous';
-  v.muted        = true;
-  v.preload      = 'metadata';
-  v.playsInline  = true;
-
-  v.addEventListener('loadedmetadata', () => {
-    // Seek ke 10% durasi untuk dapat frame yang lebih menarik
-    v.currentTime = Math.max(0.5, v.duration * 0.1);
-  }, { once: true });
-
-  v.addEventListener('seeked', () => {
-    try {
-      const canvas = document.createElement('canvas');
-      // Resolusi kecil untuk hemat memory — 180x320 cukup untuk grid thumbnail
-      canvas.width  = 180;
-      canvas.height = 320;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-      thumbCache[key] = dataUrl;
-      callback(dataUrl);
-    } catch (e) {
-      // CORS atau error lain → callback null, pakai placeholder
-      callback(null);
-    }
-    v.src = ''; // bebaskan memory
-  }, { once: true });
-
-  v.addEventListener('error', () => callback(null), { once: true });
-
-  v.src = src;
+function cloudinaryThumb(videoUrl, opts = {}) {
+  if (!videoUrl) return '';
+  const {
+    width   = 360,
+    height  = 640,
+    time    = '3',
+    quality = 'auto'
+  } = opts;
+  const encoded = encodeURIComponent(videoUrl);
+  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/video/fetch/w_${width},h_${height},c_fill,q_${quality},so_${time}/${encoded}.jpg`;
 }
 
-// Set thumbnail ke elemen img di grid, dengan fallback placeholder
-function setGridThumb(imgEl, placeholderEl, src, title) {
-  if (!src) { placeholderEl.style.display = 'flex'; return; }
-  generateThumb(src, (dataUrl) => {
-    if (dataUrl) {
-      imgEl.src = dataUrl;
-      imgEl.style.display = 'block';
-      placeholderEl.style.display = 'none';
-    } else {
-      // CORS block snap — pakai placeholder
-      imgEl.style.display = 'none';
-      placeholderEl.style.display = 'flex';
-    }
-  });
+function resolveThumb(v) {
+  if (v.thumb && v.thumb.trim()) return v.thumb.trim();
+  if (v.src   && v.src.trim())  return cloudinaryThumb(v.src.trim());
+  return '';
 }
+
 const GRAD_COLORS = ['#1a1a2e','#16213e','#0f3460','#1b1b2f','#162447','#1f4068','#1b262c','#2d132c'];
 function buildGrid(container, list) {
   container.innerHTML = '';
   if (list.length === 0) {
     container.innerHTML = `
       <div class="empty-state" style="grid-column:1/-1">
-        <div class="empty-icon">🔖</div>
+        <div class="empty-icon">\U0001f516</div>
         <p>Belum ada video yang disimpan</p>
       </div>`;
     return;
@@ -899,39 +903,26 @@ function buildGrid(container, list) {
     item.className = 'grid-item';
     item.style.background = GRAD_COLORS[idx % GRAD_COLORS.length];
 
-    // img — hidden dulu
-    const img = document.createElement('img');
-    img.alt = v.title || '';
-    img.style.cssText = 'display:none;width:100%;height:100%;object-fit:cover;position:absolute;inset:0;';
-
-    // placeholder icon
     const ph = document.createElement('div');
     ph.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:38px;opacity:0.25;';
-    ph.textContent = '🎬';
-
-    item.appendChild(img);
+    ph.textContent = '\U0001f3ac';
     item.appendChild(ph);
 
-    // Prioritas: 1) thumb di videos.js  2) auto-snap dari video src
-    const thumbUrl = v.thumb && v.thumb.trim();
-    const vidSrc   = v.src || '';
-
+    const thumbUrl = resolveThumb(v);
     if (thumbUrl) {
-      img.src = thumbUrl;
-      img.onload  = () => { img.style.display = 'block'; ph.style.display = 'none'; };
-      img.onerror = () => {
-        img.style.display = 'none'; ph.style.display = 'flex';
-        if (vidSrc) setGridThumb(img, ph, vidSrc);
-      };
-    } else if (vidSrc) {
-      // Auto-snap dari video
-      setGridThumb(img, ph, vidSrc);
+      const img = document.createElement('img');
+      img.alt     = v.title || '';
+      img.loading = 'lazy';
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;display:block;';
+      img.src     = thumbUrl;
+      img.onerror = () => { img.remove(); ph.style.display = 'flex'; };
+      img.onload  = () => { ph.style.display = 'none'; };
+      item.appendChild(img);
     }
 
     const overlay = document.createElement('div'); overlay.className = 'grid-overlay';
     const title   = document.createElement('div'); title.className   = 'grid-title'; title.textContent = v.title || '';
     const views   = document.createElement('div'); views.className   = 'grid-views'; views.textContent = v.views || '';
-
     item.appendChild(overlay);
     item.appendChild(title);
     item.appendChild(views);
@@ -944,19 +935,25 @@ function buildGrid(container, list) {
     }
 
     item.addEventListener('click', () => {
-      const idx2 = vlist.findIndex(x => x.id === v.id);
-      if (idx2 === -1) return;
+      let idx2 = vlist.findIndex(x => x.id === v.id);
+      if (idx2 === -1) idx2 = addVideoToFeed(v);
       switchPage('home');
-      if (idx2 !== current) { locked = false; goTo(idx2, true, false); }
+      locked = false;
+      goTo(idx2, true, false);
     });
 
     container.appendChild(item);
   });
 }
 
-function renderExplorePage() { buildGrid(document.getElementById('gridExplore'), vlist); }
+
+// allVideos = semua video (untuk explore, search, saved)
+// vlist = 10 random untuk home feed saja
+const allVideos = shuffle([...videos]);
+
+function renderExplorePage() { buildGrid(document.getElementById('gridExplore'), allVideos); }
 function renderSavedPage() {
-  const saved = vlist.filter(v => savedSet.has(v.id));
+  const saved = allVideos.filter(v => savedSet.has(v.id));
   const container = document.getElementById('gridLikes');
   if (saved.length === 0) {
     container.innerHTML = `
@@ -972,7 +969,7 @@ function renderSavedPage() {
 // ── SEARCH ───────────────────────────────────────────────────────────────────
 function renderSearch(query) {
   const q = query.trim().toLowerCase();
-  const result = q ? vlist.filter(v => (v.title || '').toLowerCase().includes(q)) : vlist;
+  const result = q ? allVideos.filter(v => (v.title || '').toLowerCase().includes(q)) : allVideos;
   buildGrid(document.getElementById('gridSearch'), result);
 }
 
@@ -995,30 +992,33 @@ function switchPage(name) {
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('logoHome').style.display  = name === 'home' ? '' : 'none';
-  document.getElementById('dots').style.display      = name === 'home' ? '' : 'none';
   document.getElementById('swipeHint').style.display = name === 'home' ? '' : 'none';
 
   if (name === 'home') {
     // Balik ke home — resume video jika tadi sedang play dan bukan user pause
     const vid = getVid(current);
     if (wasPlayingBeforeLeave && !userPaused[current]) {
-      vid.muted = !interacted;
+      vid.volume = 1;
+      vid.muted  = !interacted;
       vid.play().catch(() => {});
     }
     wasPlayingBeforeLeave = false;
     return;
   }
 
-  // Keluar dari home — pause semua video, MUTE dulu sebelum pause
-  // Ini fix audio yang masih nyaring saat pindah halaman di Chrome Android
+  // Keluar dari home — mute + volume 0 + pause
+  // volume=0 sebagai double-kill: Chrome Android kadang masih emit audio
+  // meski muted=true kalau audio context belum di-suspend
   wasPlayingBeforeLeave = false;
   slides.forEach((s, i) => {
     const vid = s.querySelector('video');
     if (!vid.paused) {
       if (i === current) wasPlayingBeforeLeave = true;
-      vid.muted = true;  // mute dulu sebelum pause — fix audio ghost Chrome
-      vid.pause();
     }
+    // Selalu mute dan set volume 0, terlepas apakah sedang play atau tidak
+    vid.volume = 0;
+    vid.muted  = true;
+    vid.pause();
   });
 
   if (name === 'explore') {
