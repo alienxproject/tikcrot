@@ -187,16 +187,23 @@ var userPaused  = vlist.map(function(){ return false; });
 var feed   = document.getElementById('feed');
 var slides = [];
 
-// ─── THUMBNAIL CACHE & GENERATOR ─────────────────────────────────────────────
-// Strategi: snap canvas dari <video> element yang sudah ada di feed DOM.
-// Video feed di-load browser tanpa CORS restriction untuk playback.
-// Snap dilakukan PASSIF saat video playing — tidak ada seek, tidak ganggu audio.
-var thumbCache = {};  // { videoId: dataURL }
+// ─── THUMBNAIL SYSTEM ─────────────────────────────────────────────────────────
+// Generate thumbnail di background via hidden video element.
+// Key insight: JANGAN set crossOrigin — ini yang block CORS di CDN.
+// Browser bisa load video untuk playback tanpa crossOrigin,
+// tapi saat canvas.drawImage dipanggil tanpa crossOrigin → security error.
+//
+// Solusi: snap dari feed video yang SUDAH playing (tidak perlu crossOrigin),
+// PLUS background queue untuk video yang belum pernah diputar.
+// Queue jalan satu per satu (serial) agar tidak banjiri bandwidth.
 
-// Dipanggil saat video 'playing' — snap frame tanpa seek
-function snapThumb(vidEl, videoId) {
-  if (thumbCache[videoId]) return;  // sudah ada
-  // Perlu ada frame dulu (readyState >= 2, currentTime > 0)
+var thumbCache = {};   // { videoId: dataURL }
+var thumbQueue = [];   // antrian videoId yang belum ada thumbnail
+var queueBusy  = false;
+
+// Snap dari video element yang sudah playing — dipanggil saat 'playing' event
+function snapThumbFromPlaying(vidEl, videoId) {
+  if (thumbCache[videoId]) return;
   if (vidEl.readyState < 2 || vidEl.currentTime < 0.1) return;
   try {
     var c = document.createElement('canvas');
@@ -205,12 +212,113 @@ function snapThumb(vidEl, videoId) {
     var d = c.toDataURL('image/jpeg', 0.72);
     if (d && d.length > 800) {
       thumbCache[videoId] = d;
-      // Update semua grid item yang menunggu thumbnail ini
-      document.querySelectorAll('[data-thumb-id="' + videoId + '"]').forEach(function(img){
-        img.src = d;
-      });
+      applyThumb(videoId, d);
     }
-  } catch(e) { /* CORS block — biarkan placeholder */ }
+  } catch(e) {}
+}
+
+// Update semua img di grid yang menunggu thumbnail ini
+function applyThumb(videoId, dataUrl) {
+  document.querySelectorAll('img[data-tid="' + videoId + '"]').forEach(function(img){
+    img.src = dataUrl;
+    img.style.display = 'block';
+    var ph = img.parentNode.querySelector('.grid-ph');
+    if (ph) ph.style.display = 'none';
+  });
+}
+
+// Background queue: generate thumbnail satu per satu via hidden video
+// Tidak pakai crossOrigin → canvas akan block, KECUALI browser sudah cache video
+// Gunakan approach: load video → seek → coba snap → kalau CORS error → skip
+function processQueue() {
+  if (queueBusy || thumbQueue.length === 0) return;
+
+  var videoId = thumbQueue.shift();
+  if (thumbCache[videoId]) { processQueue(); return; } // sudah ada, skip
+
+  var vdata = vlist.find(function(x){ return x.id === videoId; });
+  if (!vdata || !vdata.src) { processQueue(); return; }
+
+  queueBusy = true;
+
+  // Coba snap dari feed video element yang mungkin sudah punya data
+  var feedIdx = vlist.findIndex(function(x){ return x.id === videoId; });
+  var feedVid = feedIdx >= 0 ? slides[feedIdx].querySelector('video') : null;
+
+  if (feedVid && feedVid.readyState >= 2 && feedVid.currentTime > 0) {
+    // Feed video sudah punya frame — snap langsung
+    try {
+      var c = document.createElement('canvas');
+      c.width = 180; c.height = 320;
+      c.getContext('2d').drawImage(feedVid, 0, 0, 180, 320);
+      var d = c.toDataURL('image/jpeg', 0.72);
+      if (d && d.length > 800) {
+        thumbCache[videoId] = d;
+        applyThumb(videoId, d);
+      }
+    } catch(e) {}
+    queueBusy = false;
+    // Delay kecil antar item agar tidak spike CPU
+    setTimeout(processQueue, 50);
+    return;
+  }
+
+  // Feed video belum punya frame → buat hidden video, load metadata, seek, snap
+  var hv = document.createElement('video');
+  hv.muted = true;
+  hv.preload = 'metadata';
+  hv.setAttribute('playsinline','');
+  // TIDAK set crossOrigin — kalau di-set, CDN yang tidak support CORS akan block
+  // Canvas snap akan dicoba; kalau security error (tainted canvas) → skip saja
+
+  var done = false;
+  var timeout = setTimeout(function(){
+    if (done) return; done = true;
+    hv.src = ''; hv.load();
+    queueBusy = false;
+    setTimeout(processQueue, 100);
+  }, 8000); // timeout 8 detik kalau video tidak respond
+
+  hv.addEventListener('loadedmetadata', function(){
+    hv.currentTime = Math.min(1.5, (hv.duration || 10) * 0.08);
+  }, { once: true });
+
+  hv.addEventListener('seeked', function(){
+    if (done) return; done = true;
+    clearTimeout(timeout);
+    try {
+      var c = document.createElement('canvas');
+      c.width = 180; c.height = 320;
+      c.getContext('2d').drawImage(hv, 0, 0, 180, 320);
+      var d = c.toDataURL('image/jpeg', 0.72);
+      if (d && d.length > 800) {
+        thumbCache[videoId] = d;
+        applyThumb(videoId, d);
+      }
+    } catch(e) { /* tainted canvas — CDN tidak support CORS, skip */ }
+    hv.src = ''; hv.load(); // bebaskan memory
+    queueBusy = false;
+    setTimeout(processQueue, 80); // delay antar request agar tidak spam CDN
+  }, { once: true });
+
+  hv.addEventListener('error', function(){
+    if (done) return; done = true;
+    clearTimeout(timeout);
+    hv.src = ''; hv.load();
+    queueBusy = false;
+    setTimeout(processQueue, 100);
+  }, { once: true });
+
+  hv.src = vdata.src;
+}
+
+// Tambah video ke antrian thumbnail (skip kalau sudah ada thumb atau sudah di-queue)
+var queuedSet = new Set();
+function queueThumb(videoId) {
+  if (thumbCache[videoId] || queuedSet.has(videoId)) return;
+  queuedSet.add(videoId);
+  thumbQueue.push(videoId);
+  processQueue();
 }
 
 // ─── BUILD FEED DOM ───────────────────────────────────────────────────────────
@@ -275,8 +383,8 @@ vlist.forEach(function(v, i) {
   vid.addEventListener('playing', function(){
     sp2.classList.remove('show');
     if (!userPaused[i]) pi.classList.remove('show');
-    // Snap thumbnail passif — tidak seek, tidak ganggu audio
-    snapThumb(vid, v.id);
+    // Snap passif saat video playing
+    snapThumbFromPlaying(vid, v.id);
   });
 
   vid.addEventListener('ended', function(){
@@ -554,17 +662,24 @@ function buildGrid(containerId, list, savedOnly){
     // 2) field thumb di videos.js
     // 3) Placeholder tetap tampil (tidak ada seek/load tambahan)
     if (thumbCache[v.id]) {
+      // Sudah ada di cache — tampilkan langsung
       img.src = thumbCache[v.id];
       img.style.display = 'block';
       ph.style.display = 'none';
     } else if (v.thumb && v.thumb.trim()) {
+      // Ada URL thumb di videos.js — pakai itu
       img.src = v.thumb.trim();
       img.onload  = function(){ img.style.display='block'; ph.style.display='none'; };
-      img.onerror = function(){ img.style.display='none'; ph.style.display='flex'; };
+      img.onerror = function(){
+        img.style.display = 'none';
+        // Gagal load URL thumb → masuk queue background generator
+        img.dataset.tid = v.id;
+        queueThumb(v.id);
+      };
     } else {
-      // Tandai img dengan data-thumb-id — akan di-update otomatis saat cache tersedia
-      img.dataset.thumbId = v.id;
-      img.style.display = 'none';
+      // Tidak ada thumb → tandai dan masukkan ke background queue
+      img.dataset.tid = v.id;
+      queueThumb(v.id);
     }
     item.appendChild(img);
 
