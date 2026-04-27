@@ -187,21 +187,36 @@ var userPaused  = vlist.map(function(){ return false; });
 var feed   = document.getElementById('feed');
 var slides = [];
 
-// ─── THUMBNAIL SYSTEM ─────────────────────────────────────────────────────────
-// Generate thumbnail di background via hidden video element.
-// Key insight: JANGAN set crossOrigin — ini yang block CORS di CDN.
-// Browser bisa load video untuk playback tanpa crossOrigin,
-// tapi saat canvas.drawImage dipanggil tanpa crossOrigin → security error.
+// ─── THUMBNAIL via CLOUDINARY ─────────────────────────────────────────────────
+// Canvas selalu throw SecurityError untuk video CDN tanpa CORS header.
+// Tidak ada cara bypass ini via JS.
 //
-// Solusi: snap dari feed video yang SUDAH playing (tidak perlu crossOrigin),
-// PLUS background queue untuk video yang belum pernah diputar.
-// Queue jalan satu per satu (serial) agar tidak banjiri bandwidth.
+// Solusi: Cloudinary video/fetch — Cloudinary download video, snap frame,
+// kembalikan sebagai JPG. Kita cukup set img.src ke URL Cloudinary.
+// Tidak perlu canvas, tidak ada CORS issue, langsung kerja.
+//
+// Syarat: aktifkan Fetch di Cloudinary Dashboard →
+//   Settings → Security → Allowed fetch domains → tambah domain CDN video kamu
+//   atau centang "Allow fetching from all domains"
+//
+// ── Contoh penggunaan ──────────────────────────────────────────────────────
+//   img.src = cloudThumb('https://cdn.videy.co/abc.mp4');
+//   img.src = cloudThumb('https://cdn.videy.co/abc.mp4', 5);  // frame detik ke-5
+//
+var CLOUD_NAME = 'dqp9grk3s';
 
-var thumbCache = {};   // { videoId: dataURL }
-var thumbQueue = [];   // antrian videoId yang belum ada thumbnail
-var queueBusy  = false;
+function cloudThumb(videoUrl, atSecond) {
+  if (!videoUrl) return '';
+  var sec = atSecond || 2;
+  // encodeURIComponent wajib — URL video punya karakter '/', ':', '?' yang harus di-escape
+  return 'https://res.cloudinary.com/' + CLOUD_NAME
+    + '/video/fetch/w_360,h_640,c_fill,q_auto,so_' + sec
+    + '/' + encodeURIComponent(videoUrl) + '.jpg';
+}
 
-// Snap dari video element yang sudah playing — dipanggil saat 'playing' event
+// Snap passif dari feed video yang sudah playing — sebagai tambahan/override
+var thumbCache = {};
+
 function snapThumbFromPlaying(vidEl, videoId) {
   if (thumbCache[videoId]) return;
   if (vidEl.readyState < 2 || vidEl.currentTime < 0.1) return;
@@ -212,113 +227,15 @@ function snapThumbFromPlaying(vidEl, videoId) {
     var d = c.toDataURL('image/jpeg', 0.72);
     if (d && d.length > 800) {
       thumbCache[videoId] = d;
-      applyThumb(videoId, d);
+      // Update grid item yang pakai data-tid
+      document.querySelectorAll('img[data-tid="' + videoId + '"]').forEach(function(img){
+        img.src = d;
+        img.style.display = 'block';
+        var ph = img.parentNode.querySelector('.grid-ph');
+        if (ph) ph.style.display = 'none';
+      });
     }
-  } catch(e) {}
-}
-
-// Update semua img di grid yang menunggu thumbnail ini
-function applyThumb(videoId, dataUrl) {
-  document.querySelectorAll('img[data-tid="' + videoId + '"]').forEach(function(img){
-    img.src = dataUrl;
-    img.style.display = 'block';
-    var ph = img.parentNode.querySelector('.grid-ph');
-    if (ph) ph.style.display = 'none';
-  });
-}
-
-// Background queue: generate thumbnail satu per satu via hidden video
-// Tidak pakai crossOrigin → canvas akan block, KECUALI browser sudah cache video
-// Gunakan approach: load video → seek → coba snap → kalau CORS error → skip
-function processQueue() {
-  if (queueBusy || thumbQueue.length === 0) return;
-
-  var videoId = thumbQueue.shift();
-  if (thumbCache[videoId]) { processQueue(); return; } // sudah ada, skip
-
-  var vdata = vlist.find(function(x){ return x.id === videoId; });
-  if (!vdata || !vdata.src) { processQueue(); return; }
-
-  queueBusy = true;
-
-  // Coba snap dari feed video element yang mungkin sudah punya data
-  var feedIdx = vlist.findIndex(function(x){ return x.id === videoId; });
-  var feedVid = feedIdx >= 0 ? slides[feedIdx].querySelector('video') : null;
-
-  if (feedVid && feedVid.readyState >= 2 && feedVid.currentTime > 0) {
-    // Feed video sudah punya frame — snap langsung
-    try {
-      var c = document.createElement('canvas');
-      c.width = 180; c.height = 320;
-      c.getContext('2d').drawImage(feedVid, 0, 0, 180, 320);
-      var d = c.toDataURL('image/jpeg', 0.72);
-      if (d && d.length > 800) {
-        thumbCache[videoId] = d;
-        applyThumb(videoId, d);
-      }
-    } catch(e) {}
-    queueBusy = false;
-    // Delay kecil antar item agar tidak spike CPU
-    setTimeout(processQueue, 50);
-    return;
-  }
-
-  // Feed video belum punya frame → buat hidden video, load metadata, seek, snap
-  var hv = document.createElement('video');
-  hv.muted = true;
-  hv.preload = 'metadata';
-  hv.setAttribute('playsinline','');
-  // TIDAK set crossOrigin — kalau di-set, CDN yang tidak support CORS akan block
-  // Canvas snap akan dicoba; kalau security error (tainted canvas) → skip saja
-
-  var done = false;
-  var timeout = setTimeout(function(){
-    if (done) return; done = true;
-    hv.src = ''; hv.load();
-    queueBusy = false;
-    setTimeout(processQueue, 100);
-  }, 8000); // timeout 8 detik kalau video tidak respond
-
-  hv.addEventListener('loadedmetadata', function(){
-    hv.currentTime = Math.min(1.5, (hv.duration || 10) * 0.08);
-  }, { once: true });
-
-  hv.addEventListener('seeked', function(){
-    if (done) return; done = true;
-    clearTimeout(timeout);
-    try {
-      var c = document.createElement('canvas');
-      c.width = 180; c.height = 320;
-      c.getContext('2d').drawImage(hv, 0, 0, 180, 320);
-      var d = c.toDataURL('image/jpeg', 0.72);
-      if (d && d.length > 800) {
-        thumbCache[videoId] = d;
-        applyThumb(videoId, d);
-      }
-    } catch(e) { /* tainted canvas — CDN tidak support CORS, skip */ }
-    hv.src = ''; hv.load(); // bebaskan memory
-    queueBusy = false;
-    setTimeout(processQueue, 80); // delay antar request agar tidak spam CDN
-  }, { once: true });
-
-  hv.addEventListener('error', function(){
-    if (done) return; done = true;
-    clearTimeout(timeout);
-    hv.src = ''; hv.load();
-    queueBusy = false;
-    setTimeout(processQueue, 100);
-  }, { once: true });
-
-  hv.src = vdata.src;
-}
-
-// Tambah video ke antrian thumbnail (skip kalau sudah ada thumb atau sudah di-queue)
-var queuedSet = new Set();
-function queueThumb(videoId) {
-  if (thumbCache[videoId] || queuedSet.has(videoId)) return;
-  queuedSet.add(videoId);
-  thumbQueue.push(videoId);
-  processQueue();
+  } catch(e) { /* CORS — sudah pakai Cloudinary, ini hanya bonus */ }
 }
 
 // ─── BUILD FEED DOM ───────────────────────────────────────────────────────────
@@ -661,25 +578,33 @@ function buildGrid(containerId, list, savedOnly){
     // 1) Cache dari snap passif saat video playing
     // 2) field thumb di videos.js
     // 3) Placeholder tetap tampil (tidak ada seek/load tambahan)
+    // Thumbnail — prioritas:
+    // 1) Cache dari snap saat video playing (paling akurat)
+    // 2) Field thumb di videos.js
+    // 3) Cloudinary video/fetch — generate JPG dari URL video, no canvas, no CORS issue
+    var thumbSrc = '';
     if (thumbCache[v.id]) {
-      // Sudah ada di cache — tampilkan langsung
-      img.src = thumbCache[v.id];
-      img.style.display = 'block';
-      ph.style.display = 'none';
+      thumbSrc = thumbCache[v.id];
     } else if (v.thumb && v.thumb.trim()) {
-      // Ada URL thumb di videos.js — pakai itu
-      img.src = v.thumb.trim();
-      img.onload  = function(){ img.style.display='block'; ph.style.display='none'; };
+      thumbSrc = v.thumb.trim();
+    } else if (v.src) {
+      thumbSrc = cloudThumb(v.src, 2);
+    }
+
+    if (thumbSrc) {
+      img.src     = thumbSrc;
+      img.loading = 'lazy';
+      img.style.display = 'block';
+      img.onload  = function(){ ph.style.display = 'none'; };
       img.onerror = function(){
+        // Cloudinary gagal (fetch belum diaktifkan / URL tidak valid)
         img.style.display = 'none';
-        // Gagal load URL thumb → masuk queue background generator
+        ph.style.display  = 'flex';
+        // Tandai untuk di-update kalau snap passif berhasil nanti
         img.dataset.tid = v.id;
-        queueThumb(v.id);
       };
     } else {
-      // Tidak ada thumb → tandai dan masukkan ke background queue
       img.dataset.tid = v.id;
-      queueThumb(v.id);
     }
     item.appendChild(img);
 
