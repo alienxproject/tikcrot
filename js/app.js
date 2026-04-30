@@ -622,30 +622,6 @@ document.getElementById('searchInput').addEventListener('input', function(e){
 // ─── PAGE SWITCHER ────────────────────────────────────────────────────────────
 var curPage = 'home';
 
-// Pindahkan drawerBtn ke dalam page-header agar sejajar dengan title
-// Saat home: kembali ke posisi fixed top-right corner
-function positionDrawerBtn(inPage) {
-  var btn = document.getElementById('drawerBtn');
-  if (inPage) {
-    // Masuk ke page-header yang aktif sebagai flex child terakhir
-    var header = document.querySelector('.page.active .page-header');
-    if (header) {
-      header.appendChild(btn);
-      btn.style.position = 'relative';
-      btn.style.top      = '';
-      btn.style.right    = '';
-      btn.style.flexShrink = '0';
-    }
-  } else {
-    // Kembalikan ke body sebagai fixed
-    document.body.appendChild(btn);
-    btn.style.position = 'fixed';
-    btn.style.top      = '14px';
-    btn.style.right    = '14px';
-    btn.style.flexShrink = '';
-  }
-}
-
 function switchPage(name){
   if (curPage === name && name !== 'home') return;
   curPage = name;
@@ -655,13 +631,14 @@ function switchPage(name){
   });
   document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
 
-  var showLogo  = name === 'home';
-  document.getElementById('logoHome').style.display   = showLogo ? '' : 'none';
-  document.getElementById('swipeHint').style.display  = showLogo ? '' : 'none';
+  var isHome = name === 'home';
+  // Logo dan swipe hint hanya di home
+  document.getElementById('logoHome').style.display  = isHome ? '' : 'none';
+  document.getElementById('swipeHint').style.display = isHome ? '' : 'none';
+  // Home drawer button (fixed) hanya tampil di home
+  document.getElementById('homeDrawerBtn').style.display = isHome ? '' : 'none';
 
-  if (name === 'home') {
-    positionDrawerBtn(false);
-    // Resume: restore volume dan play kalau tadi sedang main
+  if (isHome) {
     if (wasPlaying && !userPaused[cur]) {
       var v = getVid(cur);
       v.volume = 1;
@@ -693,9 +670,6 @@ function switchPage(name){
     buildGrid('gridLikes', vlist.filter(function(v){ return savedSet.has(v.id); }), true);
     document.getElementById('pageLikes').classList.add('active');
   }
-
-  // Pindahkan drawerBtn ke dalam header page yang aktif
-  positionDrawerBtn(true);
 }
 
 document.querySelectorAll('.nav-item').forEach(function(item){
@@ -703,26 +677,31 @@ document.querySelectorAll('.nav-item').forEach(function(item){
 });
 
 // ─── DRAWER ───────────────────────────────────────────────────────────────────
-var drawerBtn     = document.getElementById('drawerBtn');
+// Dua trigger button: #homeDrawerBtn (fixed, di feed) dan .page-drawer-btn (di page-header)
+// Keduanya memanggil openDrawer/closeDrawer yang sama — tidak ada DOM manipulation
 var drawerPanel   = document.getElementById('drawer');
 var drawerOverlay = document.getElementById('drawerOverlay');
 var drawerOpen    = false;
 
+// Sync class 'open' ke semua trigger buttons
+function syncBtnState(isOpen) {
+  var btns = document.querySelectorAll('#homeDrawerBtn, #drawerBtn, .page-drawer-btn');
+  btns.forEach(function(b){ isOpen ? b.classList.add('open') : b.classList.remove('open'); });
+}
+
 function openDrawer() {
   drawerOpen = true;
-  drawerBtn.classList.add('open');
+  syncBtnState(true);
   drawerPanel.classList.add('open');
   drawerOverlay.classList.add('show');
-  // Pause video saat drawer terbuka
   slides.forEach(function(s){ s.querySelector('video').pause(); });
 }
 
 function closeDrawer() {
   drawerOpen = false;
-  drawerBtn.classList.remove('open');
+  syncBtnState(false);
   drawerPanel.classList.remove('open');
   drawerOverlay.classList.remove('show');
-  // Resume video kalau di home dan tidak user-paused
   if (curPage === 'home' && !userPaused[cur]) {
     var v = getVid(cur);
     v.volume = 1;
@@ -731,39 +710,42 @@ function closeDrawer() {
   }
 }
 
-drawerBtn.addEventListener('click', function(e){
+function toggleDrawer(e) {
   e.stopPropagation();
   drawerOpen ? closeDrawer() : openDrawer();
+}
+
+// Home fixed button
+document.getElementById('homeDrawerBtn').addEventListener('click', toggleDrawer);
+
+// Page inline buttons (Explore, Saved) — sudah punya id="drawerBtn"
+var inlineBtn = document.getElementById('drawerBtn');
+if (inlineBtn) inlineBtn.addEventListener('click', toggleDrawer);
+
+// Search & Saved page buttons pakai onclick di HTML (memanggil drawerBtn.click())
+// Tambahkan listener ke semua .page-drawer-btn yang tidak punya id
+document.querySelectorAll('.page-drawer-btn').forEach(function(btn){
+  if (!btn.id) btn.addEventListener('click', toggleDrawer);
 });
 
 drawerOverlay.addEventListener('click', closeDrawer);
 
-// Footer: Saved
 document.getElementById('drSavedBtn').addEventListener('click', function(){
-  closeDrawer();
-  switchPage('likes');
+  closeDrawer(); switchPage('likes');
 });
 
-// Footer: Home
 document.getElementById('drHomeBtnFooter').addEventListener('click', function(){
-  closeDrawer();
-  switchPage('home');
+  closeDrawer(); switchPage('home');
 });
 
-// Link .dr-link — tutup drawer saat diklik (link sudah buka tab baru sendiri)
 drawerPanel.querySelectorAll('.dr-link').forEach(function(link){
-  link.addEventListener('click', function(){
-    // Beri sedikit delay agar tab baru sempat terbuka sebelum drawer tutup
-    setTimeout(closeDrawer, 150);
-  });
+  link.addEventListener('click', function(){ setTimeout(closeDrawer, 150); });
 });
 
-// Swipe kanan untuk tutup drawer (natural gesture mobile)
 var drSwipeStartX = 0;
 drawerPanel.addEventListener('touchstart', function(e){
   drSwipeStartX = e.touches[0].clientX;
 }, { passive: true });
 drawerPanel.addEventListener('touchend', function(e){
-  var dx = e.changedTouches[0].clientX - drSwipeStartX;
-  if (dx > 60) closeDrawer(); // swipe kanan = tutup
+  if (e.changedTouches[0].clientX - drSwipeStartX > 60) closeDrawer();
 }, { passive: true });
