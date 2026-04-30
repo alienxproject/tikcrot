@@ -41,8 +41,14 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
 /* ── PAGES ── */
 .page{position:fixed;top:0;left:0;right:0;bottom:60px;background:#080808;z-index:999;overflow-y:auto;display:none;-webkit-overflow-scrolling:touch}
 .page.active{display:block}
-.page-header{position:sticky;top:0;background:rgba(8,8,8,.96);backdrop-filter:blur(10px);padding:0 16px;height:48px;display:flex;align-items:center;border-bottom:1px solid rgba(255,255,255,.06);z-index:10}
+.page-header{position:sticky;top:0;background:rgba(8,8,8,.96);backdrop-filter:blur(10px);padding:0 12px 0 16px;height:52px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.06);z-index:10}
 .page-header h2{color:#fff;font-size:18px;font-weight:700;flex:1}
+/* Search page: header lebih tinggi karena ada search bar */
+.search-page-header{height:auto;flex-direction:column;align-items:stretch;padding:0 0 10px}
+.ph-top-row{display:flex;align-items:center;gap:8px;padding:0 12px 0 16px;height:52px}
+.ph-top-row h2{flex:1;color:#fff;font-size:18px;font-weight:700}
+.search-page-header .search-bar{margin:0 12px}
+
 
 
 .search-bar{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px 14px;margin:12px 16px 0}
@@ -59,10 +65,8 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:12px;text-align:center;grid-column:1/-1}
 .empty-icon{font-size:50px;opacity:.28}
 .empty-state p{color:rgba(255,255,255,.38);font-size:15px}
-/* ── DRAWER BUTTON ── */
-/* Posisi default: top-right untuk halaman home */
-/* #drawerBtn selalu fixed, posisi top/right diatur JS saat switch page */
-#drawerBtn{
+/* ── DRAWER BUTTON — Home (fixed, overlay di atas feed) ── */
+#homeDrawerBtn{
   position:fixed;
   top:14px;right:14px;
   z-index:10001;
@@ -74,13 +78,39 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
   border:1px solid rgba(255,255,255,.2);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
   cursor:pointer;-webkit-tap-highlight-color:transparent;
-  transition:background .2s, top .2s, right .2s;
+  transition:background .2s;
 }
-#drawerBtn:active{background:rgba(255,255,255,.25)}
-#drawerBtn span{display:block;width:18px;height:2px;background:#fff;border-radius:2px;transition:transform .28s,opacity .28s}
-#drawerBtn.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
-#drawerBtn.open span:nth-child(2){opacity:0;transform:scaleX(0)}
-#drawerBtn.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+#homeDrawerBtn:active{background:rgba(255,255,255,.25)}
+#homeDrawerBtn span,
+#drawerBtn span,
+.page-drawer-btn span{display:block;width:18px;height:2px;background:#fff;border-radius:2px;transition:transform .28s,opacity .28s}
+#homeDrawerBtn.open span:nth-child(1),
+#drawerBtn.open span:nth-child(1),
+.page-drawer-btn.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+#homeDrawerBtn.open span:nth-child(2),
+#drawerBtn.open span:nth-child(2),
+.page-drawer-btn.open span:nth-child(2){opacity:0;transform:scaleX(0)}
+#homeDrawerBtn.open span:nth-child(3),
+#drawerBtn.open span:nth-child(3),
+.page-drawer-btn.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+
+/* ── DRAWER BUTTON — Pages (inline di page-header, tidak overlap grid) ── */
+.page-drawer-btn{
+  /* Tidak fixed — mengikuti flow normal dalam page-header */
+  flex-shrink:0;
+  width:40px;height:40px;
+  border-radius:50%;
+  background:rgba(255,255,255,.14);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.2);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  transition:background .2s;
+  /* Reset button default style */
+  outline:none;padding:0;
+}
+.page-drawer-btn:active{background:rgba(255,255,255,.25)}
 
 /* ── DRAWER OVERLAY ── */
 #drawerOverlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10002;opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s}
