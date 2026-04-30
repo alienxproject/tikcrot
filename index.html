@@ -10,8 +10,8 @@
 <body>
 <div id="logoHome"><img src="https://i.ibb.co.com/5XCdSQrN/Tik-Tod-1.png" alt="TikTod"></div>
 
-<!-- Hamburger button -->
-<div id="drawerBtn">
+<!-- Hamburger button HOME: fixed overlay di atas feed -->
+<div id="homeDrawerBtn">
   <span></span><span></span><span></span>
 </div>
 
@@ -85,12 +85,22 @@
 <div id="toast"></div>
 
 <div class="page" id="pageExplore">
-  <div class="page-header"><h2>Explore</h2></div>
+  <div class="page-header">
+    <h2>Explore</h2>
+    <button class="page-drawer-btn" id="drawerBtn" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
   <div class="video-grid" id="gridExplore"></div>
 </div>
 <div class="page" id="pageSearch">
-  <div class="page-header">
-    <h2>Search</h2>
+  <div class="page-header search-page-header">
+    <div class="ph-top-row">
+      <h2>Search</h2>
+      <button class="page-drawer-btn" aria-label="Menu" onclick="document.getElementById('drawerBtn').click()">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
     <div class="search-bar">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:#fff;flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input type="text" id="searchInput" placeholder="Cari video...">
@@ -99,7 +109,12 @@
   <div class="video-grid" id="gridSearch"></div>
 </div>
 <div class="page" id="pageLikes">
-  <div class="page-header"><h2>Saved</h2></div>
+  <div class="page-header">
+    <h2>Saved</h2>
+    <button class="page-drawer-btn" aria-label="Menu" onclick="document.getElementById('drawerBtn').click()">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
   <div class="video-grid" id="gridLikes"></div>
 </div>
 
