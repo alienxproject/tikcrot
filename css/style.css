@@ -81,18 +81,6 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
   transition:background .2s;
 }
 #homeDrawerBtn:active{background:rgba(255,255,255,.25)}
-#homeDrawerBtn span,
-#drawerBtn span,
-.page-drawer-btn span{display:block;width:18px;height:2px;background:#fff;border-radius:2px;transition:transform .28s,opacity .28s}
-#homeDrawerBtn.open span:nth-child(1),
-#drawerBtn.open span:nth-child(1),
-.page-drawer-btn.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
-#homeDrawerBtn.open span:nth-child(2),
-#drawerBtn.open span:nth-child(2),
-.page-drawer-btn.open span:nth-child(2){opacity:0;transform:scaleX(0)}
-#homeDrawerBtn.open span:nth-child(3),
-#drawerBtn.open span:nth-child(3),
-.page-drawer-btn.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
 
 /* ── DRAWER BUTTON — Pages (inline di page-header, tidak overlap grid) ── */
 .page-drawer-btn{
