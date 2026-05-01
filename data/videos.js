@@ -2,7 +2,7 @@ var videos = [
   {
     id: 1,
     src: "https://cdn.videy.co/23UfokTP1.mp4",
-    thumb: "",
+    thumb: "https://i.ibb.co.com/23vZRK7p/1000160130.jpg",
     title: "dedek suka main bantal ",
     views: "699k views",
     duration: "8:32",
@@ -270,6 +270,186 @@ var videos = [
     thumb: "",
     title: "pelan pelan aja dek",
     views: "1.1M views",
+    duration: "6:11",
+    cta: ""
+  },
+  {
+    id: 31,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "3.5M views",
+    duration: "6:11",
+    cta: ""
+},
+  {
+    id: 32,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "12M views",
+    duration: "6:11",
+    cta: ""
+  },
+   {
+    id: 33,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "1.6M views",
+    duration: "6:11",
+    cta: ""
+},
+  {
+    id: 34,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "340K views",
+    duration: "6:11",
+    cta: ""
+  },
+ {
+    id: 35,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "150K views",
+    duration: "6:11",
+    cta: ""
+},
+  {
+    id: 36,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "662K views",
+    duration: "6:11",
+    cta: ""
+  },
+ {
+    id: 37,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "10M views",
+    duration: "6:11",
+    cta: ""
+},
+  {
+    id: 38,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "3.1M views",
+    duration: "6:11",
+    cta: ""
+  },
+   {
+    id: 39,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "15M views",
+    duration: "6:11",
+    cta: ""
+},
+  {
+    id: 40,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "5.3M views",
+    duration: "6:11",
+    cta: ""
+  },
+   {
+    id: 41,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "8M views",
+    duration: "6:11",
+    cta: ""
+},
+  {
+    id: 42,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "13M views",
+    duration: "6:11",
+    cta: ""
+  },
+ {
+    id: 43,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "3.7M views",
+    duration: "6:11",
+    cta: ""
+},
+  {
+    id: 44,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "16M views",
+    duration: "6:11",
+    cta: ""
+  },
+ {
+    id: 45,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "20M views",
+    duration: "6:11",
+    cta: ""
+},
+  {
+    id: 46,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "21M views",
+    duration: "6:11",
+    cta: ""
+  },
+ {
+    id: 47,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "30M views",
+    duration: "6:11",
+    cta: ""
+},
+  {
+    id: 48,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "36M views",
+    duration: "6:11",
+    cta: ""
+  },
+ {
+    id: 49,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "15M views",
+    duration: "6:11",
+    cta: ""
+},
+  {
+    id: 50,
+    src: "https://cdn.videy.co/wbFIgDD81.mp4",
+    thumb: "",
+    title: "pelan pelan aja dek",
+    views: "50M views",
     duration: "6:11",
     cta: ""
   }
