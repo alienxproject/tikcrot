@@ -724,8 +724,8 @@ if (inlineBtn) inlineBtn.addEventListener('click', toggleDrawer);
 
 // Search & Saved page buttons pakai onclick di HTML (memanggil drawerBtn.click())
 // Tambahkan listener ke semua .page-drawer-btn yang tidak punya id
-document.querySelectorAll('.page-drawer-btn').forEach(function(btn){
-  if (!btn.id) btn.addEventListener('click', toggleDrawer);
+document.addEventListener('click', function(e){
+  if (e.target.closest('.page-drawer-btn')) toggleDrawer(e);
 });
 
 drawerOverlay.addEventListener('click', closeDrawer);
