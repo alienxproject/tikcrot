@@ -226,6 +226,50 @@ function snapThumbFromPlaying(vidEl, videoId) {
 // ─── BUILD FEED DOM ───────────────────────────────────────────────────────────
 var ICON_SAVE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
 var ICON_SAVE_ON  = '<svg viewBox="0 0 24 24" fill="#FFD700" stroke="#FFD700" stroke-width="2" width="22" height="22"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
+var ICON_FULLSCREEN = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+var ICON_FULLSCREEN_EXIT = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
+
+// ─── FULLSCREEN HELPER ────────────────────────────────────────────────────────
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement);
+}
+function enterFullscreen(el) {
+  if (el.requestFullscreen)            return el.requestFullscreen();
+  if (el.webkitRequestFullscreen)      return el.webkitRequestFullscreen();
+  if (el.mozRequestFullScreen)         return el.mozRequestFullScreen();
+  if (el.webkitEnterFullscreen)        return el.webkitEnterFullscreen(); // iOS video
+}
+function exitFullscreen() {
+  if (document.exitFullscreen)         return document.exitFullscreen();
+  if (document.webkitExitFullscreen)   return document.webkitExitFullscreen();
+  if (document.mozCancelFullScreen)    return document.mozCancelFullScreen();
+}
+function updateAllFsIcons() {
+  var inFs = isFullscreen();
+  document.querySelectorAll('.act-btn.fs-btn').forEach(function(btn){
+    var icon  = btn.querySelector('.act-icon');
+    var label = btn.querySelector('.act-label');
+    if (icon)  icon.innerHTML  = inFs ? ICON_FULLSCREEN_EXIT : ICON_FULLSCREEN;
+    if (label) label.textContent = inFs ? 'Exit' : 'Fullscreen';
+  });
+}
+document.addEventListener('fullscreenchange',       updateAllFsIcons);
+document.addEventListener('webkitfullscreenchange', updateAllFsIcons);
+document.addEventListener('mozfullscreenchange',    updateAllFsIcons);
+
+// ─── VIDEO ASPECT RATIO IN FEED ──────────────────────────────────────────────
+// Deteksi apakah video portrait atau landscape, lalu set object-fit yang sesuai
+// Portrait: contain + background hitam (tidak crop)
+// Landscape: contain + background hitam (tidak crop)
+// Default saat belum tahu: cover (sama seperti sebelumnya)
+function applyVideoFit(vidEl) {
+  if (!vidEl.videoWidth || !vidEl.videoHeight) return;
+  var isPortrait = vidEl.videoHeight >= vidEl.videoWidth;
+  // Untuk portrait: contain agar tidak terpotong
+  // Untuk landscape: contain agar bar atas-bawah muncul, tidak distorsi
+  vidEl.style.objectFit = 'contain';
+  vidEl.style.background = '#000';
+}
 
 vlist.forEach(function(v, i) {
   var slide = document.createElement('div');
@@ -255,6 +299,11 @@ vlist.forEach(function(v, i) {
 
   var sa = document.createElement('div'); sa.className = 'side-actions';
 
+  var fsBtn = document.createElement('div');
+  fsBtn.className = 'act-btn fs-btn';
+  fsBtn.innerHTML = '<div class="act-icon">'+ICON_FULLSCREEN+'</div>'
+    +'<span class="act-label">Fullscreen</span>';
+
   var saveBtn = document.createElement('div');
   saveBtn.className = 'act-btn' + (savedSet.has(v.id) ? ' saved' : '');
   saveBtn.innerHTML = '<div class="act-icon">'+(savedSet.has(v.id)?ICON_SAVE_ON:ICON_SAVE_OFF)+'</div>'
@@ -267,7 +316,7 @@ vlist.forEach(function(v, i) {
     +'<polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>'
     +'<span class="act-label">Download</span>';
 
-  sa.appendChild(saveBtn); sa.appendChild(dlBtn);
+  sa.appendChild(fsBtn); sa.appendChild(saveBtn); sa.appendChild(dlBtn);
   slide.appendChild(vid); slide.appendChild(info);
   slide.appendChild(pw); slide.appendChild(pi);
   slide.appendChild(sp2); slide.appendChild(sa);
@@ -275,6 +324,11 @@ vlist.forEach(function(v, i) {
   slides.push(slide);
 
   // ── EVENTS ──
+  // Deteksi aspect ratio saat metadata tersedia
+  vid.addEventListener('loadedmetadata', function(){ applyVideoFit(vid); });
+  // Juga cek saat playing (kadang metadata telat)
+  vid.addEventListener('canplay', function(){ applyVideoFit(vid); });
+
   vid.addEventListener('timeupdate', function(){
     if (vid.duration) pf.style.width = (vid.currentTime / vid.duration * 100) + '%';
   });
@@ -310,6 +364,22 @@ vlist.forEach(function(v, i) {
       userPaused[i] = true;
       vid.pause();
       pi.textContent = '▶'; pi.classList.add('show');
+    }
+  });
+
+  // Fullscreen
+  fsBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    if (isFullscreen()) {
+      exitFullscreen();
+    } else {
+      var promise = enterFullscreen(slide);
+      if (promise && typeof promise.catch === 'function') {
+        promise.catch(function(){
+          // Fallback: fullscreen pada video element langsung (untuk iOS)
+          enterFullscreen(vid);
+        });
+      }
     }
   });
 
@@ -739,7 +809,7 @@ document.getElementById('drHomeBtnFooter').addEventListener('click', function(){
 });
 
 drawerPanel.querySelectorAll('.dr-link').forEach(function(link){
-  link.addEventListener('click', function(){ setTimeout(closeDrawer, 150); });
+  link.addEventListener('click', function(){ setTimeout(closeDrawer, 0); });
 });
 
 var drSwipeStartX = 0;
