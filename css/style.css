@@ -3,7 +3,25 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
 #feed{position:fixed;top:0;left:0;right:0;bottom:60px;overflow:hidden}
 .slide{position:absolute;inset:0;opacity:0;pointer-events:none;will-change:opacity}
 .slide.active{opacity:1;pointer-events:auto;z-index:2}
-.slide video{width:100%;height:100%;object-fit:cover;display:block;-webkit-touch-callout:none}
+.slide video{width:100%;height:100%;object-fit:cover;display:block;-webkit-touch-callout:none;background:#000}
+
+/* Fullscreen mode — pastikan slide mengisi layar penuh */
+:-webkit-full-screen .slide,
+:-moz-full-screen .slide,
+:fullscreen .slide{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;z-index:99999!important;opacity:1!important;pointer-events:auto!important}
+:-webkit-full-screen .slide video,
+:-moz-full-screen .slide video,
+:fullscreen .slide video{width:100%!important;height:100%!important}
+/* Saat slide aktif fullscreen, tampilkan overlay UI */
+:-webkit-full-screen .slide .side-actions,
+:-moz-full-screen .slide .side-actions,
+:fullscreen .slide .side-actions{display:flex!important}
+:-webkit-full-screen .slide .info,
+:-moz-full-screen .slide .info,
+:fullscreen .slide .info{display:block!important}
+:-webkit-full-screen .slide .prog-wrap,
+:-moz-full-screen .slide .prog-wrap,
+:fullscreen .slide .prog-wrap{display:block!important}
 .slide::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 30%,transparent 52%,rgba(0,0,0,.72) 100%);pointer-events:none;z-index:3}
 .info{position:absolute;bottom:28px;left:14px;right:76px;z-index:5;color:#fff}
 .info h3{font-size:15px;font-weight:700;text-shadow:0 1px 6px rgba(0,0,0,.8);margin-bottom:3px;line-height:1.3}
