@@ -6,7 +6,7 @@
 <title>TikTod</title>
 <link rel="icon" href="https://static.vecteezy.com/system/resources/thumbnails/045/832/436/small_2x/3d-pink-alphabet-letter-t-png.png">
 <style>
-/* ── CSS ── */
+/* ── CSS UTAMA ── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100vw;height:100vh;position:fixed;user-select:none;-webkit-user-select:none;transition:background 0.3s, color 0.3s}
 #feed{position:fixed;top:0;left:0;right:0;bottom:60px;overflow:hidden}
@@ -42,6 +42,8 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
 #swipeHint.hide{opacity:0;visibility:hidden;animation:none}
 @keyframes hintBounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-8px)}}
 #dots{display:none!important}
+
+/* ── NAVBAR ── */
 #navbar{position:fixed;bottom:0;left:0;right:0;height:auto;padding:8px 0 max(8px,env(safe-area-inset-bottom,8px));background:rgba(12,12,12,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:flex-start;justify-content:space-around;z-index:10000;transition:background 0.3s}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:3px 0;transition:opacity .14s}
 .nav-item:active{opacity:.55}
@@ -51,6 +53,7 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
 .nav-item.active svg{filter:brightness(0) invert(1)}
 .nav-item:not(.active) svg{filter:brightness(0) invert(.42);transition:filter 0.3s}
 
+/* ── PAGES ── */
 .page{position:fixed;top:0;left:0;right:0;bottom:60px;background:#080808;z-index:999;overflow-y:auto;display:none;-webkit-overflow-scrolling:touch;transition:background 0.3s}
 .page.active{display:block}
 .page-header{position:sticky;top:0;background:rgba(8,8,8,.96);backdrop-filter:blur(10px);padding:0 12px 0 16px;height:52px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.06);z-index:10;transition:background 0.3s}
@@ -74,7 +77,7 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
 .empty-icon{font-size:50px;opacity:.28}
 .empty-state p{color:rgba(255,255,255,.38);font-size:15px}
 
-/* Tombol Floating & Drawer */
+/* ── TOMBOL FLOATING & DRAWER ── */
 #homeDrawerBtn{position:fixed;top:14px;right:14px;z-index:10001;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .2s;}
 #homeDrawerBtn:active{background:rgba(255,255,255,.25)}
 #homeThemeBtn{position:fixed;top:14px;right:64px;z-index:10001;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .2s;}
@@ -116,25 +119,21 @@ body.light-mode .page { background: #f9f9f9; }
 body.light-mode .page-header { background: rgba(255,255,255,0.96); border-bottom: 1px solid rgba(0,0,0,0.1); }
 body.light-mode .page-header h2, body.light-mode .ph-top-row h2 { color: #000; }
 body.light-mode .page-drawer-btn svg, body.light-mode .page-theme-btn svg { stroke: #000; }
-body.light-mode .page-header .btn-theme-icon { color: #000; } /* Khusus theme icon di pages */
-
+body.light-mode .page-header .btn-theme-icon { color: #000; } 
 body.light-mode #navbar { background: rgba(255,255,255,0.97); border-top: 1px solid rgba(0,0,0,0.1); }
 body.light-mode .nav-item span { color: #888; }
 body.light-mode .nav-item.active span { color: #000; }
 body.light-mode .nav-item:not(.active) svg { filter: invert(0.6); }
 body.light-mode .nav-item.active svg { filter: invert(0); }
-
 body.light-mode #drawer { background: #fff; }
 body.light-mode .dr-header-title, body.light-mode .dr-section { color: #111; }
 body.light-mode .dr-header-sub { color: #777; }
 body.light-mode .dr-footer-item { color: #222; }
 body.light-mode .dr-footer, body.light-mode .dr-header, body.light-mode .dr-divider { border-color: rgba(0,0,0,0.1); }
-
 body.light-mode .search-bar { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.1); }
 body.light-mode .search-bar input { color: #000; }
 body.light-mode .search-bar input::placeholder { color: #888; }
 body.light-mode .search-bar svg { stroke: #000; color:#000; }
-
 body.light-mode .grid-item { background: #eee; }
 body.light-mode .grid-item .gi-title { text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
 </style>
@@ -248,57 +247,6 @@ if (typeof videos === 'undefined' || !videos.length) {
   throw new Error('videos.js kosong atau tidak ditemukan');
 }
 
-/* ── HISTORY API ROUTING ── */
-var curPage = 'home';
-var cur = 0;
-
-function updateHistory(page, extra) {
-  var url = '/';
-  if (page === 'home') url = extra ? '/v=' + extra : '/';
-  else if (page === 'explore') url = '/Explore';
-  else if (page === 'search') url = '/?=' + encodeURIComponent(extra || '');
-  else if (page === 'likes') url = '/saved';
-  
-  try {
-    if (window.location.pathname + window.location.search !== url) {
-      history.pushState({page: page, extra: extra}, '', url);
-    }
-  } catch(e) {}
-}
-
-function initRouter() {
-  var path = window.location.pathname;
-  var search = window.location.search;
-  
-  if (path.toLowerCase() === '/explore') curPage = 'explore';
-  else if (path.toLowerCase() === '/saved') curPage = 'likes';
-  else if (search.startsWith('?=')) {
-     curPage = 'search';
-     var kw = decodeURIComponent(search.substring(2));
-     document.getElementById('searchInput').value = kw;
-  }
-  else if (path.startsWith('/v=')) {
-     var vidId = path.substring(3);
-     var idx = vlist.findIndex(function(v){ return v.id == vidId || v.id === vidId; });
-     if (idx >= 0) cur = idx;
-  }
-}
-
-window.addEventListener('popstate', function(e){
-  if (e.state) {
-    var p = e.state.page, ex = e.state.extra;
-    if (p === 'search') {
-      document.getElementById('searchInput').value = ex || '';
-      renderSearch(ex);
-    }
-    if (p === 'home' && ex) {
-       var idx = vlist.findIndex(function(v){ return v.id == ex; });
-       if(idx >= 0) { switchPage('home', true); locked = false; goTo(idx, true, false); return; }
-    }
-    switchPage(p, true);
-  }
-});
-
 function fixLayout() {
   var h = document.getElementById('navbar').offsetHeight || 60;
   var bot = h + 'px';
@@ -339,13 +287,15 @@ var vlist = shuffle(videos);
 var vExplore = shuffle(videos);
 var vSearch = shuffle(videos);
 
+var cur = 0;
+var curPage = 'home';
 var locked = false;
 var interacted = false;
 var swipeCnt = 0;
 var ctaFired = false;
 var leftHome = false;
 var wasPlaying = false;
-var isScrubbing = false; // Deteksi touch bar 
+var isScrubbing = false; 
 var wasPlayingBeforeScrub = false;
 
 var savedSet = new Set(JSON.parse(localStorage.getItem('tiktod_saves') || '[]'));
@@ -359,7 +309,7 @@ var fsTimeout;
 var ICON_SUN = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
 var ICON_MOON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 
-// Icons Menu
+// Icons Menu (Tanpa Teks)
 var ICON_SHARE = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>';
 var ICON_SAVE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
 var ICON_SAVE_ON  = '<svg viewBox="0 0 24 24" fill="#FFD700" stroke="#FFD700" stroke-width="2" width="22" height="22"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
@@ -425,11 +375,11 @@ vlist.forEach(function(v, i) {
     if (i !== cur) return;
     var isFs = document.fullscreenElement || document.webkitFullscreenElement;
     if (isFs) {
-      // Fitur 5: Jangan auto next jika Fullscreen, cukup balik ke unfullscreen
+      // Keluar fullscreen, matikan auto-next
       var exit = document.exitFullscreen || document.webkitExitFullscreen;
       if (exit) exit.call(document);
       locked = false;
-      pi.textContent = '▶'; pi.classList.add('show'); // tampilkan tombol play
+      pi.textContent = '▶'; pi.classList.add('show'); 
       return; 
     }
     locked = false; goTo((cur + 1) % vlist.length, false, false);
@@ -479,9 +429,15 @@ vlist.forEach(function(v, i) {
   /* ── ACTION BUTTONS EVENTS ── */
   shareBtn.addEventListener('click', function(e){
     e.stopPropagation();
-    var shareUrl = window.location.origin + window.location.pathname + '?v=' + v.id;
-    if (navigator.share) { navigator.share({ title: v.title, url: shareUrl }).catch(function(){}); } 
-    else { navigator.clipboard.writeText(shareUrl); showToast('Link disalin! 🔗'); }
+    // Berbagi link domain utama saja
+    var shareUrl = window.location.origin + window.location.pathname;
+    if (navigator.share) { 
+      navigator.share({ title: 'Tonton video viral di TikTod!', url: shareUrl }).catch(function(){}); 
+    } 
+    else { 
+      navigator.clipboard.writeText(shareUrl); 
+      showToast('Link disalin! 🔗'); 
+    }
   });
 
   fsBtn.addEventListener('click', function(e){
@@ -524,11 +480,9 @@ vlist.forEach(function(v, i) {
   });
 });
 
-/* ── AWAL INIT APP SETELAH DOM SELESAI ── */
-initRouter(); // Cek URL
+/* ── INIT DOM ── */
 slides[cur].classList.add('active'); ensureSrc(cur); ensureSrc((cur + 1) % vlist.length);
 var pi0 = slides[cur].querySelector('.play-icon'); pi0.textContent = '▶'; pi0.classList.add('show');
-if (curPage !== 'home') switchPage(curPage, true); else updateHistory('home', vlist[cur].id);
 
 /* ── EVENT LISTENER UTAMA ── */
 document.addEventListener('fullscreenchange', handleFsChange);
@@ -575,7 +529,6 @@ function goTo(next, force, isSwipe){
   });
 
   cur = next; slides[cur].classList.add('active'); ensureSrc(cur); ensureSrc((cur + 1) % vlist.length);
-  if (curPage === 'home') updateHistory('home', vlist[cur].id);
 
   var len = slides.length;
   slides.forEach(function(s, i){
@@ -693,19 +646,12 @@ function renderSearch(q){
 
 document.getElementById('searchInput').addEventListener('input', function(e){ 
   renderSearch(e.target.value); 
-  updateHistory('search', e.target.value);
 });
 
-function switchPage(name, skipHistory){
+function switchPage(name){
   if (curPage === name && name !== 'home') return;
   curPage = name;
   
-  if (!skipHistory) {
-    if (name === 'search') updateHistory('search', document.getElementById('searchInput').value);
-    else if (name === 'home') updateHistory('home', vlist[cur].id);
-    else updateHistory(name);
-  }
-
   document.querySelectorAll('.nav-item').forEach(function(item){ item.classList.toggle('active', item.dataset.page === name); });
   document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
 
