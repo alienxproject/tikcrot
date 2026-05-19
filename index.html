@@ -330,7 +330,7 @@ var leftHome = false;
 var wasPlaying = false;
 var isScrubbing = false; 
 var wasPlayingBeforeScrub = false;
-if (v.thumb) vid.poster = v.thumb;
+
 var savedSet = new Set(JSON.parse(localStorage.getItem('tiktod_saves') || '[]'));
 function persistSaved(){ localStorage.setItem('tiktod_saves', JSON.stringify([...savedSet])); }
 var userPaused = vlist.map(function(){ return false; });
@@ -364,7 +364,7 @@ vlist.forEach(function(v, i) {
   var vid = document.createElement('video');
   vid.setAttribute('playsinline',''); vid.setAttribute('webkit-playsinline','');
   vid.muted = true; vid.preload = 'none'; vid.loop = false;
-
+if (v.thumb) vid.poster = v.thumb;
   
   if (i === 0) { vid.src = v.src; vid.preload = 'metadata'; } else vid.dataset.src = v.src;
 
