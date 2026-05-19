@@ -155,13 +155,44 @@ body.light-mode .grid-item .gi-title { text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
     <img src="https://i.ibb.co.com/8DC51ydH/1000160116.png" alt="TikTod">
     <div>
       <div class="dr-header-title">by tiktod</div>
-      <div class="dr-header-sub">video viral terbaru</div>
+      <div class="dr-header-sub">koleksi premium</div>
     </div>
   </div>
   <div class="dr-body">
-    <div class="dr-section">enjoy the video, koleksi terbaik, kalo video tidak muncul, coba refresh atau copy linknya dan buka di browser</div>
+    <div class="dr-section">enjoy the video ─ kalo video tidak muncul pake vpn atau coba refresh atau copy linknya dan buka di browser</div>
     <div class="dr-divider"></div>
   </div>
+
+    <!-- Folder — isi link, ganti href sesuai URL tujuan -->
+    <div class="dr-section">📁 Folder</div>
+    <a class="dr-link" href="https://vidlc.com/f/yqspj0pskgl" target="_blank" rel="noopener">viral 2026</a>
+    <a class="dr-link" href="https://vidlc.com/f/20ph90a04lu" target="_blank" rel="noopener">adek kakak</a>
+    <a class="dr-link" href="https://vidlc.com/f/l2lcn15dbvq" target="_blank" rel="noopener">janda mantep</a>
+    <a class="dr-link" href="https://vidlc.com/f/qkp6t58qg0r" target="_blank" rel="noopener">muncrat ahh</a>
+    <a class="dr-link" href="https://vidlc.com/f/aicvdo5ydiv" target="_blank" rel="noopener">gangbang</a>
+
+    <div class="dr-divider"></div>
+
+    <!-- Trending -->
+    <div class="dr-section">🔥 Trending</div>
+    <a class="dr-link" href="https://vidlc.com/f/pg77narej2x" target="_blank" rel="noopener">ochiel pink</a>
+    <a class="dr-link" href="https://vidlc.com/f/cr1ozrxkk4n" target="_blank" rel="noopener">mabok di ewe</a>
+    <a class="dr-link" href="https://vidlc.com/f/udhfckdp5lm" target="_blank" rel="noopener">percakapan</a>
+    <a class="dr-link" href="https://vidlc.com/f/i8b8ufxmr0l" target="_blank" rel="noopener">skandal artis</a>
+    <a class="dr-link" href="https://vidlc.com/f/gdbb2g0rwjc" target="_blank" rel="noopener">sepongan maut</a>
+
+    <div class="dr-divider"></div>
+
+    <!-- Genre -->
+    <div class="dr-section">⭐ Genre</div>
+    <a class="dr-link" href="https://vidlc.com/f/0hpls8shtpo" target="_blank" rel="noopener">main sendiri</a>
+    <a class="dr-link" href="https://vidlc.com/f/w0e5z1ybs1d" target="_blank" rel="noopener">tante brutal</a>
+    <a class="dr-link" href="https://vidlc.com/f/a5dnnpbrrpi" target="_blank" rel="noopener">incest keluarga</a>
+    <a class="dr-link" href="https://vidlc.com/f/a0jdfuagcux" target="_blank" rel="noopener">main paksa</a>
+    <a class="dr-link" href="https://vidlc.com/f/fw5rds4le5a" target="_blank" rel="noopener">fantasi liar</a>
+
+  </div><!-- end dr-body -->
+  
   <div class="dr-footer">
     <div class="dr-footer-item" id="drSavedBtn">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg> Saved
@@ -172,7 +203,7 @@ body.light-mode .grid-item .gi-title { text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
   </div>
 </div>
 
-<div id="swipeHint">👑 swipe up & use vpn kalo buffer 👑</div>
+<div id="swipeHint">👑 swipe up & use vpn kalo eror 👑</div>
 <div id="dots"></div>
 <div id="feed" style="bottom:60px"></div>
 <div id="toast"></div>
@@ -331,7 +362,8 @@ vlist.forEach(function(v, i) {
   var vid = document.createElement('video');
   vid.setAttribute('playsinline',''); vid.setAttribute('webkit-playsinline','');
   vid.muted = true; vid.preload = 'none'; vid.loop = false;
-  if (v.thumb) vid.poster = v.thumb;
+
+  
   if (i === 0) { vid.src = v.src; vid.preload = 'metadata'; } else vid.dataset.src = v.src;
 
   var info = document.createElement('div'); info.className = 'info';
