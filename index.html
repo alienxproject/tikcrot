@@ -12,7 +12,10 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
 #feed{position:fixed;top:0;left:0;right:0;bottom:60px;overflow:hidden}
 .slide{position:absolute;inset:0;opacity:0;pointer-events:none;will-change:opacity}
 .slide.active{opacity:1;pointer-events:auto;z-index:2}
-.slide video{width:100%;height:100%;object-fit:cover;display:block;-webkit-touch-callout:none}
+
+/* Aspect Ratio Contain Sesuai Request */
+.slide video{width:100%;height:100%;object-fit:contain;background:#000;display:block;-webkit-touch-callout:none}
+
 .slide::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 30%,transparent 52%,rgba(0,0,0,.72) 100%);pointer-events:none;z-index:3}
 .info{position:absolute;bottom:28px;left:14px;right:76px;z-index:5;color:#fff}
 .info h3{font-size:15px;font-weight:700;text-shadow:0 1px 6px rgba(0,0,0,.8);margin-bottom:3px;line-height:1.3}
@@ -89,6 +92,15 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
 .dr-footer-item svg{width:20px;height:20px;flex-shrink:0;opacity:.8}
 #toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.14);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:13px;font-weight:500;padding:8px 18px;border-radius:20px;z-index:99999;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .3s}
 #toast.show{opacity:1}
+
+/* ── FULLSCREEN AUTO HIDE UI CSS ── */
+.slide:-webkit-full-screen .side-actions, .slide:-webkit-full-screen .info, .slide:-webkit-full-screen .prog-wrap { opacity: 0 !important; pointer-events: none; transition: opacity 0.4s ease; }
+.slide:-moz-full-screen .side-actions, .slide:-moz-full-screen .info, .slide:-moz-full-screen .prog-wrap { opacity: 0 !important; pointer-events: none; transition: opacity 0.4s ease; }
+.slide:fullscreen .side-actions, .slide:fullscreen .info, .slide:fullscreen .prog-wrap { opacity: 0 !important; pointer-events: none; transition: opacity 0.4s ease; }
+
+.slide:-webkit-full-screen.show-ui .side-actions, .slide:-webkit-full-screen.show-ui .info, .slide:-webkit-full-screen.show-ui .prog-wrap { opacity: 1 !important; pointer-events: auto; }
+.slide:-moz-full-screen.show-ui .side-actions, .slide:-moz-full-screen.show-ui .info, .slide:-moz-full-screen.show-ui .prog-wrap { opacity: 1 !important; pointer-events: auto; }
+.slide:fullscreen.show-ui .side-actions, .slide:fullscreen.show-ui .info, .slide:fullscreen.show-ui .prog-wrap { opacity: 1 !important; pointer-events: auto; }
 </style>
 </head>
 <body>
@@ -226,7 +238,11 @@ var CTA_URL = (function(){
 })();
 var CTA_SWIPES = 3;
 
+// RANDOMISASI TERPISAH (FITUR 3 & 4)
 var vlist = shuffle(videos);
+var vExplore = shuffle(videos);
+var vSearch = shuffle(videos);
+
 var cur = 0;
 var locked = false;
 var interacted = false;
@@ -239,9 +255,19 @@ function persistSaved(){ localStorage.setItem('tiktod_saves', JSON.stringify([..
 var userPaused = vlist.map(function(){ return false; });
 var feed = document.getElementById('feed');
 var slides = [];
+var fsTimeout; // Timer untuk auto-hide UI saat fullscreen
 
 var ICON_SAVE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
 var ICON_SAVE_ON  = '<svg viewBox="0 0 24 24" fill="#FFD700" stroke="#FFD700" stroke-width="2" width="22" height="22"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
+var ICON_FS_ENTER = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
+var ICON_FS_EXIT  = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>';
+
+function applyAspect(v) {
+  if (v.videoWidth && v.videoHeight) {
+    v.style.objectFit = 'contain';
+    v.style.background = '#000';
+  }
+}
 
 vlist.forEach(function(v, i) {
   var slide = document.createElement('div');
@@ -268,6 +294,11 @@ vlist.forEach(function(v, i) {
   var sp2 = document.createElement('div'); sp2.className = 'spinner';
   var sa = document.createElement('div'); sa.className = 'side-actions';
 
+  // Tombol Fullscreen (FITUR 1)
+  var fsBtn = document.createElement('div');
+  fsBtn.className = 'act-btn';
+  fsBtn.innerHTML = '<div class="act-icon btn-fs-icon">' + ICON_FS_ENTER + '</div><span class="act-label">Full</span>';
+
   var saveBtn = document.createElement('div');
   saveBtn.className = 'act-btn' + (savedSet.has(v.id) ? ' saved' : '');
   saveBtn.innerHTML = '<div class="act-icon">'+(savedSet.has(v.id)?ICON_SAVE_ON:ICON_SAVE_OFF)+'</div><span class="act-label">'+(savedSet.has(v.id)?'Saved':'Save')+'</span>';
@@ -276,9 +307,13 @@ vlist.forEach(function(v, i) {
   dlBtn.className = 'act-btn';
   dlBtn.innerHTML = '<div class="act-icon"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div><span class="act-label">Download</span>';
 
-  sa.appendChild(saveBtn); sa.appendChild(dlBtn);
+  sa.appendChild(fsBtn); sa.appendChild(saveBtn); sa.appendChild(dlBtn);
   slide.appendChild(vid); slide.appendChild(info); slide.appendChild(pw); slide.appendChild(pi); slide.appendChild(sp2); slide.appendChild(sa);
   feed.appendChild(slide); slides.push(slide);
+
+  // Deteksi Otomatis Resolusi Video (FITUR 2)
+  vid.addEventListener('loadedmetadata', function(){ applyAspect(vid); });
+  vid.addEventListener('canplay', function(){ applyAspect(vid); });
 
   vid.addEventListener('timeupdate', function(){
     if (vid.duration) pf.style.width = (vid.currentTime / vid.duration * 100) + '%';
@@ -293,16 +328,44 @@ vlist.forEach(function(v, i) {
     if (i !== cur) return;
     locked = false; goTo((cur + 1) % vlist.length, false, false);
   });
+  
   slide.addEventListener('click', function(e){
     if (locked || e.target.closest('.side-actions') || e.target.closest('.prog-wrap')) return;
     e.stopPropagation(); interacted = true; vid.muted = false;
+
+    // Saat tap layar di mode fullscreen, tampilkan UI selama 2.5 detik
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      slide.classList.add('show-ui');
+      clearTimeout(fsTimeout);
+      fsTimeout = setTimeout(function(){ slide.classList.remove('show-ui'); }, 2500);
+    }
+
     if (vid.paused) {
-      userPaused[i] = false; pi.classList.remove('show');
+      userPaused[i] = false; pi.classList.remove('show'); slide.classList.remove('is-paused');
       vid.play().catch(function(){ vid.muted = true; vid.play().catch(function(){}); });
     } else {
-      userPaused[i] = true; vid.pause(); pi.textContent = '▶'; pi.classList.add('show');
+      userPaused[i] = true; vid.pause(); pi.textContent = '▶'; pi.classList.add('show'); slide.classList.add('is-paused');
     }
   });
+
+  // Event Klik Fullscreen
+  fsBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      var req = slide.requestFullscreen || slide.webkitRequestFullscreen;
+      if (req) {
+        req.call(slide).then(function() {
+          if (vid.videoWidth > vid.videoHeight && screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(function(err){});
+          }
+        }).catch(function(err){ showToast('Fullscreen gagal didukung'); });
+      }
+    } else {
+      var exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) exit.call(document);
+    }
+  });
+
   saveBtn.addEventListener('click', function(e){
     e.stopPropagation();
     var icon = saveBtn.querySelector('.act-icon'), label = saveBtn.querySelector('.act-label');
@@ -316,6 +379,7 @@ vlist.forEach(function(v, i) {
     persistSaved();
     if (document.getElementById('pageLikes').classList.contains('active')) buildGrid('gridLikes', vlist.filter(function(x){ return savedSet.has(x.id); }), true);
   });
+
   dlBtn.addEventListener('click', function(e){
     e.stopPropagation();
     var url = v.src || vid.src;
@@ -323,11 +387,35 @@ vlist.forEach(function(v, i) {
     var a = document.createElement('a'); a.href = url; a.download = (v.title||'video')+'.mp4'; a.target = '_blank';
     document.body.appendChild(a); a.click(); document.body.removeChild(a); showToast('Mengunduh... ⬇️');
   });
+  
   pw.addEventListener('click', function(e){
     e.stopPropagation();
     if (vid.duration) vid.currentTime = ((e.clientX - pw.getBoundingClientRect().left) / pw.offsetWidth) * vid.duration;
   });
 });
+
+// Listener Global Untuk Perubahan Fullscreen
+document.addEventListener('fullscreenchange', handleFsChange);
+document.addEventListener('webkitfullscreenchange', handleFsChange);
+
+function handleFsChange() {
+  document.querySelectorAll('.btn-fs-icon').forEach(function(el){ el.innerHTML = ICON_FS_ENTER; });
+  var isFs = document.fullscreenElement || document.webkitFullscreenElement;
+  
+  if (isFs) {
+    slides[cur].classList.add('show-ui');
+    clearTimeout(fsTimeout);
+    fsTimeout = setTimeout(function(){ slides[cur].classList.remove('show-ui'); }, 2500);
+    var icon = slides[cur].querySelector('.btn-fs-icon');
+    if(icon) icon.innerHTML = ICON_FS_EXIT;
+  } else {
+    slides[cur].classList.remove('show-ui');
+    clearTimeout(fsTimeout);
+    if (screen.orientation && screen.orientation.unlock) {
+      screen.orientation.unlock();
+    }
+  }
+}
 
 function getVid(i){ return slides[i].querySelector('video'); }
 function ensureSrc(i){
@@ -337,7 +425,7 @@ function ensureSrc(i){
 function playVid(i){
   var v = getVid(i), sp = slides[i].querySelector('.spinner'), pi = slides[i].querySelector('.play-icon');
   if (userPaused[i]) return;
-  pi.classList.remove('show'); v.volume = 1; v.muted = !interacted;
+  pi.classList.remove('show'); v.volume = 1; v.muted = !interacted; slides[i].classList.remove('is-paused');
   if (vlist[i] && vlist[i].finished) { v.currentTime = 0; vlist[i].finished = false; slides[i].querySelector('.prog-fill').style.width = '0%'; }
   if (!v.src && v.dataset.src) v.src = v.dataset.src;
   if (v.readyState === 0) { sp.classList.add('show'); v.load(); }
@@ -347,7 +435,9 @@ function playVid(i){
 function goTo(next, force, isSwipe){
   if (locked && !force) return;
   if (next === cur && !force) return;
-  locked = true; userPaused[cur] = false; slides[cur].querySelector('.play-icon').classList.remove('show');
+  locked = true; userPaused[cur] = false; 
+  slides[cur].querySelector('.play-icon').classList.remove('show');
+  slides[cur].classList.remove('is-paused');
 
   slides.forEach(function(s, i){
     if (i !== next) {
@@ -399,21 +489,25 @@ feed.addEventListener('touchmove', function(e){
   if (tV) e.preventDefault();
 }, {passive:false});
 feed.addEventListener('touchend', function(e){
-  if (!tV || locked) return;
+  // Nonaktifkan swipe jika dalam mode Fullscreen
+  if (!tV || locked || document.fullscreenElement || document.webkitFullscreenElement) return;
   var dy = ty - e.changedTouches[0].clientY, vel = Math.abs(dy) / Math.max(Date.now()-tt, 1);
   if (Math.abs(dy)<40 && vel<0.3) return;
   interacted = true; dismissHint(); goTo(dy>0 ? (cur+1)%vlist.length : (cur-1+vlist.length)%vlist.length, false, true);
 }, {passive:true});
 
 document.addEventListener('keydown', function(e){
-  if (locked) return;
+  if (locked || document.fullscreenElement || document.webkitFullscreenElement) return;
   if (e.key==='ArrowDown'){ dismissHint(); goTo((cur+1)%vlist.length,false,true); }
   if (e.key==='ArrowUp')  { goTo((cur-1+vlist.length)%vlist.length,false,true); }
   if (e.key===' ')        { e.preventDefault(); slides[cur].click(); }
 });
 var wc=false;
 feed.addEventListener('wheel', function(e){
-  e.preventDefault(); if (locked||wc) return; wc=true; setTimeout(function(){wc=false;},420);
+  e.preventDefault(); 
+  // Nonaktifkan scroll mouse di Fullscreen
+  if (locked||wc||document.fullscreenElement||document.webkitFullscreenElement) return; 
+  wc=true; setTimeout(function(){wc=false;},420);
   dismissHint(); goTo(e.deltaY>0?(cur+1)%vlist.length:(cur-1+vlist.length)%vlist.length,false,true);
 }, {passive:false});
 
@@ -454,14 +548,23 @@ function buildGrid(containerId, list, savedOnly){
     var gv = document.createElement('div'); gv.className = 'gi-views'; gv.textContent = v.views || '';
     item.appendChild(ov); item.appendChild(gt); item.appendChild(gv);
     if (savedSet.has(v.id)) { var badge = document.createElement('div'); badge.className = 'gi-badge'; badge.innerHTML = SVG_BADGE; item.appendChild(badge); }
-    item.addEventListener('click', function(){ var i2 = vlist.findIndex(function(x){ return x.id === v.id; }); if (i2 < 0) return; switchPage('home'); locked = false; goTo(i2, true, false); });
+    
+    // Saat klik dari grid, cari id di vlist utama agar urutan home tetap terjaga
+    item.addEventListener('click', function(){ 
+      var i2 = vlist.findIndex(function(x){ return x.id === v.id; }); 
+      if (i2 < 0) return; 
+      switchPage('home'); 
+      locked = false; 
+      goTo(i2, true, false); 
+    });
     container.appendChild(item);
   });
 }
 
 function renderSearch(q){
   q = (q||'').trim().toLowerCase();
-  buildGrid('gridSearch', q ? vlist.filter(function(v){ return (v.title||'').toLowerCase().includes(q); }) : vlist, false);
+  // Filter menggunakan vSearch untuk hasil yang beda
+  buildGrid('gridSearch', q ? vSearch.filter(function(v){ return (v.title||'').toLowerCase().includes(q); }) : vSearch, false);
 }
 document.getElementById('searchInput').addEventListener('input', function(e){ renderSearch(e.target.value); });
 
@@ -484,9 +587,19 @@ function switchPage(name){
   wasPlaying = false;
   slides.forEach(function(s, i){ var v = s.querySelector('video'); if (!v.paused && i === cur) wasPlaying = true; v.volume = 0; v.muted = true; v.pause(); });
 
-  if (name === 'explore') { buildGrid('gridExplore', vlist, false); document.getElementById('pageExplore').classList.add('active'); }
-  else if (name === 'search') { renderSearch(document.getElementById('searchInput').value); document.getElementById('pageSearch').classList.add('active'); setTimeout(function(){ document.getElementById('searchInput').focus(); }, 300); }
-  else if (name === 'likes') { buildGrid('gridLikes', vlist.filter(function(v){ return savedSet.has(v.id); }), true); document.getElementById('pageLikes').classList.add('active'); }
+  if (name === 'explore') { 
+    buildGrid('gridExplore', vExplore, false); // Memakai susunan acak tersendiri
+    document.getElementById('pageExplore').classList.add('active'); 
+  }
+  else if (name === 'search') { 
+    renderSearch(document.getElementById('searchInput').value); // Memakai susunan acak tersendiri
+    document.getElementById('pageSearch').classList.add('active'); 
+    setTimeout(function(){ document.getElementById('searchInput').focus(); }, 300); 
+  }
+  else if (name === 'likes') { 
+    buildGrid('gridLikes', vlist.filter(function(v){ return savedSet.has(v.id); }), true); 
+    document.getElementById('pageLikes').classList.add('active'); 
+  }
 }
 
 document.querySelectorAll('.nav-item').forEach(function(item){ item.addEventListener('click', function(){ switchPage(item.dataset.page); }); });
