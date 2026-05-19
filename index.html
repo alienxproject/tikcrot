@@ -95,6 +95,9 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
 .dr-header-title{color:#fff;font-size:16px;font-weight:700;letter-spacing:.02em}
 .dr-header-sub{color:rgba(255,255,255,.4);font-size:12px;margin-top:2px}
 .dr-body{flex:1;padding:8px 0 12px;overflow-y:auto}
+.dr-link{display:block;padding:10px 20px 10px 36px;color:rgba(255,255,255,.65);font-size:14px;text-decoration:none;-webkit-tap-highlight-color:transparent;transition:background .15s,color .15s;position:relative;line-height:1.4}
+.dr-link::before{content:'';position:absolute;left:22px;top:50%;transform:translateY(-50%);width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.2)}
+.dr-link:active{color:#fff;background:rgba(255,255,255,.06)}
 .dr-section{padding:16px 20px 7px;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px;letter-spacing:.06em;text-transform:uppercase;pointer-events:none;cursor:default;user-select:none}
 .dr-divider{height:1px;background:rgba(255,255,255,.06);margin:4px 0}
 .dr-footer{flex-shrink:0;border-top:1px solid rgba(255,255,255,.07);padding:8px 0 max(16px,env(safe-area-inset-bottom,16px))}
