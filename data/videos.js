@@ -452,5 +452,14 @@ var videos = [
     views: "50M views",
     duration: "6:11",
     cta: ""
-  }
+},
+   {
+    id: 51,
+    src: "https://video-cf.cdnsolutions.media/9hsW3UKtReQZ295vvapLSl%2F0mHtYk%2Bj9zx5PIotp3cU%3D/104/1779170400/media=hls4/multi=256x144:144p:,426x240:240p:,854x480:480p:,1280x720:720p:,1920x1080:1080p:/029/079/583/_TPL_.av1.mp4",
+    thumb: "https://ic-vt-nss.cdnsolutions.media/a/ODU5MjViMzc1NWNjM2E1NmI5YjU2ZDYxYjM0OWUwMDg/s(w:640,h:360),webp/029/079/583/v2/2560x1440.210.webp",
+    title: "sayang kamu ❤️",
+    views: "50M views",
+    duration: "6:11",
+    cta: ""
+}
 ];
