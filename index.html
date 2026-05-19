@@ -330,7 +330,7 @@ var leftHome = false;
 var wasPlaying = false;
 var isScrubbing = false; 
 var wasPlayingBeforeScrub = false;
-
+if (v.thumb) vid.poster = v.thumb;
 var savedSet = new Set(JSON.parse(localStorage.getItem('tiktod_saves') || '[]'));
 function persistSaved(){ localStorage.setItem('tiktod_saves', JSON.stringify([...savedSet])); }
 var userPaused = vlist.map(function(){ return false; });
