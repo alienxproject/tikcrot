@@ -5,80 +5,206 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>TikTod</title>
 <link rel="icon" href="https://static.vecteezy.com/system/resources/thumbnails/045/832/436/small_2x/3d-pink-alphabet-letter-t-png.png">
-<link rel="stylesheet" href="css/style.css">
+<style>
+/* ── CSS UTAMA ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100vw;height:100vh;position:fixed;user-select:none;-webkit-user-select:none;transition:background 0.3s, color 0.3s}
+#feed{position:fixed;top:0;left:0;right:0;bottom:60px;overflow:hidden}
+.slide{position:absolute;inset:0;opacity:0;pointer-events:none;will-change:opacity}
+.slide.active{opacity:1;pointer-events:auto;z-index:2}
+.slide video{width:100%;height:100%;object-fit:contain;background:#000;display:block;-webkit-touch-callout:none}
+.slide::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,transparent 30%,transparent 52%,rgba(0,0,0,.72) 100%);pointer-events:none;z-index:3}
+.info{position:absolute;bottom:28px;left:14px;right:76px;z-index:5;color:#fff}
+.info h3{font-size:15px;font-weight:700;text-shadow:0 1px 6px rgba(0,0,0,.8);margin-bottom:3px;line-height:1.3}
+.info span{font-size:12px;opacity:.7}
+
+/* Progress bar hit-area diperbesar agar mudah di-swipe */
+.prog-wrap{position:absolute;bottom:0;left:0;right:0;height:24px;z-index:6;cursor:pointer;display:flex;align-items:flex-end;padding-bottom:10px}
+.prog-wrap::before{content:'';position:absolute;bottom:10px;left:0;right:0;height:3px;background:rgba(255,255,255,.22);border-radius:2px}
+.prog-fill{position:relative;height:3px;width:0%;background:#fff;border-radius:2px;pointer-events:none;transition:width .1s linear;z-index:2}
+
+.play-icon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.6);font-size:58px;color:#fff;z-index:7;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s;text-shadow:0 2px 14px rgba(0,0,0,.5)}
+.play-icon.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.spinner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;border:3px solid rgba(255,255,255,.18);border-top-color:rgba(255,255,255,.9);border-radius:50%;z-index:8;opacity:0;pointer-events:none;animation:spin .7s linear infinite;transition:opacity .15s}
+.spinner.show{opacity:1}
+@keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.side-actions{position:absolute;right:10px;bottom:22px;z-index:5;display:flex;flex-direction:column;align-items:center;gap:18px}
+.act-btn{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .14s}
+.act-btn:active{transform:scale(.86)}
+.act-icon{width:44px;height:44px;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.2);transition:background .2s}
+.act-btn.saved .act-icon{background:rgba(255,215,0,.28);border-color:rgba(255,215,0,.55)}
+
+#logoHome{position:fixed;top:14px;left:14px;z-index:9999;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s}
+#logoHome:active{transform:scale(.92)}
+#logoHome img{width:88px;height:auto;display:block;filter:drop-shadow(0 2px 8px rgba(0,0,0,.4))}
+#swipeHint{position:fixed;bottom:160px;left:50%;transform:translateX(-50%);z-index:9999;color:#fff;font-size:14px;font-weight:500;background:rgba(0,0,0,.5);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.15);padding:8px 18px;border-radius:24px;pointer-events:none;white-space:nowrap;opacity:0;visibility:hidden;transition:opacity .4s,visibility .4s}
+#swipeHint.show{opacity:1;visibility:visible;animation:hintBounce 1.4s ease-in-out .4s infinite}
+#swipeHint.hide{opacity:0;visibility:hidden;animation:none}
+@keyframes hintBounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-8px)}}
+#dots{display:none!important}
+
+/* ── NAVBAR ── */
+#navbar{position:fixed;bottom:0;left:0;right:0;height:auto;padding:8px 0 max(8px,env(safe-area-inset-bottom,8px));background:rgba(12,12,12,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:flex-start;justify-content:space-around;z-index:10000;transition:background 0.3s}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:3px 0;transition:opacity .14s}
+.nav-item:active{opacity:.55}
+.nav-item svg{width:24px;height:24px}
+.nav-item span{font-size:10px;font-weight:500;color:rgba(255,255,255,.42);transition:color 0.3s}
+.nav-item.active span{color:#fff}
+.nav-item.active svg{filter:brightness(0) invert(1)}
+.nav-item:not(.active) svg{filter:brightness(0) invert(.42);transition:filter 0.3s}
+
+/* ── PAGES ── */
+.page{position:fixed;top:0;left:0;right:0;bottom:60px;background:#080808;z-index:999;overflow-y:auto;display:none;-webkit-overflow-scrolling:touch;transition:background 0.3s}
+.page.active{display:block}
+.page-header{position:sticky;top:0;background:rgba(8,8,8,.96);backdrop-filter:blur(10px);padding:0 12px 0 16px;height:52px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.06);z-index:10;transition:background 0.3s}
+.page-header h2{color:#fff;font-size:18px;font-weight:700;flex:1;transition:color 0.3s}
+.search-page-header{height:auto;flex-direction:column;align-items:stretch;padding:0 0 10px}
+.ph-top-row{display:flex;align-items:center;gap:8px;padding:0 12px 0 16px;height:52px}
+.ph-top-row h2{flex:1;color:#fff;font-size:18px;font-weight:700;transition:color 0.3s}
+.search-page-header .search-bar{margin:0 12px}
+.search-bar{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px 14px;margin:12px 16px 0;transition:background 0.3s}
+.search-bar input{flex:1;background:none;border:none;outline:none;color:#fff;font-size:15px;font-family:inherit}
+.search-bar input::placeholder{color:rgba(255,255,255,.32)}
+.video-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:2px}
+.grid-item{position:relative;aspect-ratio:9/16;overflow:hidden;cursor:pointer;background:#111;-webkit-tap-highlight-color:transparent}
+.grid-item img{width:100%;height:100%;object-fit:cover;display:block}
+.grid-item .gi-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 50%,rgba(0,0,0,.75) 100%)}
+.grid-item .gi-title{position:absolute;bottom:8px;left:8px;right:8px;color:#fff;font-size:12px;font-weight:600;line-height:1.3;text-shadow:0 1px 4px rgba(0,0,0,.8);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.grid-item .gi-views{position:absolute;top:8px;left:8px;color:#fff;font-size:10px;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+.grid-item .gi-badge{position:absolute;top:8px;right:8px}
+.grid-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:36px;opacity:.22}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:12px;text-align:center;grid-column:1/-1}
+.empty-icon{font-size:50px;opacity:.28}
+.empty-state p{color:rgba(255,255,255,.38);font-size:15px}
+
+/* ── TOMBOL FLOATING & DRAWER ── */
+#homeDrawerBtn{position:fixed;top:14px;right:14px;z-index:10001;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .2s;}
+#homeDrawerBtn:active{background:rgba(255,255,255,.25)}
+#homeThemeBtn{position:fixed;top:14px;right:64px;z-index:10001;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .2s;}
+
+.page-drawer-btn{flex-shrink:0;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .2s;outline:none;padding:0;}
+.page-drawer-btn:active{background:rgba(255,255,255,.25)}
+.btn-theme-icon { color: white; display: flex; align-items: center; justify-content: center; }
+
+#drawerOverlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10002;opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s}
+#drawerOverlay.show{opacity:1;visibility:visible}
+#drawer{position:fixed;top:0;right:0;bottom:0;width:280px;max-width:85vw;background:#0d0d0d;z-index:10003;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column}
+#drawer.open{transform:translateX(0)}
+.dr-header{padding:20px 20px 16px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:12px;flex-shrink:0}
+.dr-header img{width:72px;height:auto}
+.dr-header-title{color:#fff;font-size:16px;font-weight:700;letter-spacing:.02em}
+.dr-header-sub{color:rgba(255,255,255,.4);font-size:12px;margin-top:2px}
+.dr-body{flex:1;padding:8px 0 12px;overflow-y:auto}
+.dr-section{padding:16px 20px 7px;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px;letter-spacing:.06em;text-transform:uppercase;pointer-events:none;cursor:default;user-select:none}
+.dr-divider{height:1px;background:rgba(255,255,255,.06);margin:4px 0}
+.dr-footer{flex-shrink:0;border-top:1px solid rgba(255,255,255,.07);padding:8px 0 max(16px,env(safe-area-inset-bottom,16px))}
+.dr-footer-item{display:flex;align-items:center;gap:12px;padding:13px 20px;color:rgba(255,255,255,.85);font-size:14px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s}
+.dr-footer-item:active{background:rgba(255,255,255,.07)}
+.dr-footer-item svg{width:20px;height:20px;flex-shrink:0;opacity:.8}
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.14);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:13px;font-weight:500;padding:8px 18px;border-radius:20px;z-index:99999;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .3s}
+#toast.show{opacity:1}
+
+/* ── FULLSCREEN AUTO HIDE UI CSS ── */
+.slide:-webkit-full-screen .side-actions, .slide:-webkit-full-screen .info, .slide:-webkit-full-screen .prog-wrap { opacity: 0 !important; pointer-events: none; transition: opacity 0.4s ease; }
+.slide:-moz-full-screen .side-actions, .slide:-moz-full-screen .info, .slide:-moz-full-screen .prog-wrap { opacity: 0 !important; pointer-events: none; transition: opacity 0.4s ease; }
+.slide:fullscreen .side-actions, .slide:fullscreen .info, .slide:fullscreen .prog-wrap { opacity: 0 !important; pointer-events: none; transition: opacity 0.4s ease; }
+
+.slide:-webkit-full-screen.show-ui .side-actions, .slide:-webkit-full-screen.show-ui .info, .slide:-webkit-full-screen.show-ui .prog-wrap { opacity: 1 !important; pointer-events: auto; }
+.slide:-moz-full-screen.show-ui .side-actions, .slide:-moz-full-screen.show-ui .info, .slide:-moz-full-screen.show-ui .prog-wrap { opacity: 1 !important; pointer-events: auto; }
+.slide:fullscreen.show-ui .side-actions, .slide:fullscreen.show-ui .info, .slide:fullscreen.show-ui .prog-wrap { opacity: 1 !important; pointer-events: auto; }
+
+/* ── LIGHT MODE CSS ── */
+body.light-mode { background: #fff; color: #000; }
+body.light-mode .page { background: #f9f9f9; }
+body.light-mode .page-header { background: rgba(255,255,255,0.96); border-bottom: 1px solid rgba(0,0,0,0.1); }
+body.light-mode .page-header h2, body.light-mode .ph-top-row h2 { color: #000; }
+body.light-mode .page-drawer-btn svg, body.light-mode .page-theme-btn svg { stroke: #000; }
+body.light-mode .page-header .btn-theme-icon { color: #000; } 
+body.light-mode #navbar { background: rgba(255,255,255,0.97); border-top: 1px solid rgba(0,0,0,0.1); }
+body.light-mode .nav-item span { color: #888; }
+body.light-mode .nav-item.active span { color: #000; }
+body.light-mode .nav-item:not(.active) svg { filter: invert(0.6); }
+body.light-mode .nav-item.active svg { filter: invert(0); }
+body.light-mode #drawer { background: #fff; }
+body.light-mode .dr-header-title, body.light-mode .dr-section { color: #111; }
+body.light-mode .dr-header-sub { color: #777; }
+body.light-mode .dr-footer-item { color: #222; }
+body.light-mode .dr-footer, body.light-mode .dr-header, body.light-mode .dr-divider { border-color: rgba(0,0,0,0.1); }
+body.light-mode .search-bar { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.1); }
+body.light-mode .search-bar input { color: #000; }
+body.light-mode .search-bar input::placeholder { color: #888; }
+body.light-mode .search-bar svg { stroke: #000; color:#000; }
+body.light-mode .grid-item { background: #eee; }
+body.light-mode .grid-item .gi-title { text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+</style>
 </head>
 <body>
 <div id="logoHome"><img src="https://i.ibb.co.com/5XCdSQrN/Tik-Tod-1.png" alt="TikTod"></div>
 
-<div id="homeDrawerBtn">
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1=\"3\" y1=\"6\" x2=\"21\" y2=\"6\"/><line x1=\"3\" y1=\"12\" x2=\"21\" y2=\"12\"/><line x1=\"3\" y1=\"18\" x2=\"21\" y2=\"18\"/></svg>
-</div>
-
 <div id="homeThemeBtn">
   <div class="btn-theme-icon"></div>
+</div>
+<div id="homeDrawerBtn">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
 </div>
 
 <div id="drawerOverlay"></div>
 
 <div id="drawer">
   <div class="dr-header">
-    <img src="https://i.ibb.co.com/5XCdSQrN/Tik-Tod-1.png" alt="TikTod">
+    <img src="https://i.ibb.co.com/8DC51ydH/1000160116.png" alt="TikTod">
+    <div>
+      <div class="dr-header-title">by tiktod</div>
+      <div class="dr-header-sub">video viral terbaru</div>
+    </div>
   </div>
-  
-  <div class="dr-content">
-    <div class="dr-section-title">Kategori Kreator</div>
-    <div class="dr-grid">
-      </div>
+  <div class="dr-body">
+    <div class="dr-section">enjoy the video, koleksi terbaik, kalo video tidak muncul, coba refresh atau copy linknya dan buka di browser</div>
+    <div class="dr-divider"></div>
   </div>
-  
   <div class="dr-footer">
-    <div class="dr-footer-item dr-home" id="drHomeBtnFooter">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-      <span>Beranda</span>
-    </div>
     <div class="dr-footer-item" id="drSavedBtn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-      <span>Tersimpan</span>
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg> Saved
     </div>
-    <div class="dr-footer-item page-theme-btn">
-      <div class="btn-theme-icon" style="display:flex; align-items:center;"></div>
-      <span>Ubah Tema</span>
+    <div class="dr-footer-item" id="drHomeBtnFooter">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> Home
     </div>
   </div>
 </div>
 
-<div id="feed"></div>
-
-<div id="swipeHint">
-  <div class="sh-mouse">
-    <div class="sh-wheel"></div>
-  </div>
-  <p>Swipe up / Scroll down</p>
-</div>
-
+<div id="swipeHint">👑 swipe up & use vpn kalo buffer 👑</div>
+<div id="dots"></div>
+<div id="feed" style="bottom:60px"></div>
 <div id="toast"></div>
 
 <div class="page" id="pageExplore">
   <div class="page-header">
-    <div class="ph-left">
-      <h2>Explore</h2>
-    </div>
+    <h2>Explore</h2>
+    <button class="page-theme-btn" aria-label="Theme" style="flex-shrink:0;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;cursor:pointer;margin-right:8px;outline:none;padding:0;">
+      <div class="btn-theme-icon"></div>
+    </button>
     <button class="page-drawer-btn" aria-label="Menu">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
   </div>
   <div class="video-grid" id="gridExplore"></div>
 </div>
 
 <div class="page" id="pageSearch">
-  <div class="page-header">
-    <div class="search-bar-wrap">
-      <svg class="search-icon-svg" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+  <div class="page-header search-page-header">
+    <div class="ph-top-row">
+      <h2>Search</h2>
+      <button class="page-theme-btn" aria-label="Theme" style="flex-shrink:0;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;cursor:pointer;margin-right:8px;outline:none;padding:0;">
+        <div class="btn-theme-icon"></div>
+      </button>
+      <button class="page-drawer-btn" aria-label="Menu">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="search-bar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input type="text" id="searchInput" placeholder="Cari video...">
     </div>
-    <button class="page-drawer-btn" aria-label="Menu">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-    </button>
   </div>
   <div class="video-grid" id="gridSearch"></div>
 </div>
@@ -86,8 +212,11 @@
 <div class="page" id="pageLikes">
   <div class="page-header">
     <h2>Saved</h2>
+    <button class="page-theme-btn" aria-label="Theme" style="flex-shrink:0;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;cursor:pointer;margin-right:8px;outline:none;padding:0;">
+      <div class="btn-theme-icon"></div>
+    </button>
     <button class="page-drawer-btn" aria-label="Menu">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
   </div>
   <div class="video-grid" id="gridLikes"></div>
@@ -95,20 +224,16 @@
 
 <nav id="navbar">
   <div class="nav-item active" data-page="home">
-    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-    <span>Home</span>
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> <span>Home</span>
   </div>
   <div class="nav-item" data-page="explore">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
-    <span>Explore</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg> <span>Explore</span>
   </div>
   <div class="nav-item" data-page="search">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <span>Search</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> <span>Search</span>
   </div>
   <div class="nav-item" data-page="likes">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-    <span>Saved</span>
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg> <span>Saved</span>
   </div>
 </nav>
 
@@ -184,7 +309,7 @@ var fsTimeout;
 var ICON_SUN = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
 var ICON_MOON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 
-// Icons Menu 
+// Icons Menu (Tanpa Teks)
 var ICON_SHARE = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>';
 var ICON_SAVE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="22" height="22"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
 var ICON_SAVE_ON  = '<svg viewBox="0 0 24 24" fill="#FFD700" stroke="#FFD700" stroke-width="2" width="22" height="22"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
@@ -206,9 +331,7 @@ vlist.forEach(function(v, i) {
   var vid = document.createElement('video');
   vid.setAttribute('playsinline',''); vid.setAttribute('webkit-playsinline','');
   vid.muted = true; vid.preload = 'none'; vid.loop = false;
-  
-  // Link poster/thumb sengaja tidak dipasang di sini agar Home Feed kembali menggunakan native snap frame video asli bawaan browser.
-  
+  if (v.thumb) vid.poster = v.thumb;
   if (i === 0) { vid.src = v.src; vid.preload = 'metadata'; } else vid.dataset.src = v.src;
 
   var info = document.createElement('div'); info.className = 'info';
@@ -224,6 +347,7 @@ vlist.forEach(function(v, i) {
   var sp2 = document.createElement('div'); sp2.className = 'spinner';
   var sa = document.createElement('div'); sa.className = 'side-actions';
 
+  // Action Buttons Tanpa Text Labels
   var shareBtn = document.createElement('div'); shareBtn.className = 'act-btn'; shareBtn.innerHTML = '<div class="act-icon">' + ICON_SHARE + '</div>';
   var fsBtn = document.createElement('div'); fsBtn.className = 'act-btn'; fsBtn.innerHTML = '<div class="act-icon btn-fs-icon">' + ICON_FS_ENTER + '</div>';
   var saveBtn = document.createElement('div'); saveBtn.className = 'act-btn' + (savedSet.has(v.id) ? ' saved' : ''); saveBtn.innerHTML = '<div class="act-icon">'+(savedSet.has(v.id)?ICON_SAVE_ON:ICON_SAVE_OFF)+'</div>';
@@ -246,10 +370,12 @@ vlist.forEach(function(v, i) {
     if (!userPaused[i]) pi.classList.remove('show');
   });
 
+  // Saat Video Habis 
   vid.addEventListener('ended', function(){
     if (i !== cur) return;
     var isFs = document.fullscreenElement || document.webkitFullscreenElement;
     if (isFs) {
+      // Keluar fullscreen, matikan auto-next
       var exit = document.exitFullscreen || document.webkitExitFullscreen;
       if (exit) exit.call(document);
       locked = false;
@@ -277,6 +403,7 @@ vlist.forEach(function(v, i) {
     }
   });
 
+  /* ── PROGRESS BAR SCRUBBING (DRAG & SWIPE) ── */
   function updateScrub(e) {
     var rect = pw.getBoundingClientRect();
     var clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -299,8 +426,10 @@ vlist.forEach(function(v, i) {
     if (wasPlayingBeforeScrub) vid.play().catch(function(){});
   });
 
+  /* ── ACTION BUTTONS EVENTS ── */
   shareBtn.addEventListener('click', function(e){
     e.stopPropagation();
+    // Berbagi link domain utama saja
     var shareUrl = window.location.origin + window.location.pathname;
     if (navigator.share) { 
       navigator.share({ title: 'Tonton video viral di TikTod!', url: shareUrl }).catch(function(){}); 
@@ -355,6 +484,7 @@ vlist.forEach(function(v, i) {
 slides[cur].classList.add('active'); ensureSrc(cur); ensureSrc((cur + 1) % vlist.length);
 var pi0 = slides[cur].querySelector('.play-icon'); pi0.textContent = '▶'; pi0.classList.add('show');
 
+/* ── EVENT LISTENER UTAMA ── */
 document.addEventListener('fullscreenchange', handleFsChange);
 document.addEventListener('webkitfullscreenchange', handleFsChange);
 
