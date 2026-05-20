@@ -447,7 +447,7 @@ var videos = [
   {
     id: 50,
     src: "https://cdn2.slicedrive.com/frsJDBYb1.mp4",
-    thumb: "https://i.ibb.co.com/QvNKpWsQ/Screenshot-2026-05-19-20-21-23-26-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
+    thumb: "https://i.ibb.co.com/0y4HqBrQ/Screenshot-2026-05-19-21-05-14-67-a87fd7db6caa850b517aa6fa9d2fcd0e.png",
     title: "Halo dek dapat jatah",
     views: "50M views",
     duration: "6:11",
@@ -456,7 +456,7 @@ var videos = [
    {
     id: 51,
     src: "https://stream.kingbokep.video/ulekan-memek-kanoshikita/playlist.m3u8",
-    thumb: "https://cdn.kingbokep.video/thumbs/ulekan-memek-kanoshikita.webp",
+    thumb: "https://i.ibb.co.com/mCRNqxR4/Screenshot-2026-05-20-19-23-11-13-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
     title: "ulekan tante tasya",
     views: "50M views",
     duration: "6:11",
@@ -465,7 +465,7 @@ var videos = [
   {
 id: 52,
 src: "https://stream.kingbokep.video/kak-christine-bikin-goyang-kamar/playlist.m3u8",
-thumb: "https://cdn.kingbokep.video/thumbs/kak-christine-bikin-goyang-kamar.webp",
+thumb: "https://i.ibb.co.com/8LR0sLyJ/Screenshot-2026-05-20-19-20-01-09-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
 title: "kak cristine sayang adek",
 views: "12M views",
     duration: "6:11",
@@ -474,7 +474,7 @@ views: "12M views",
 {
 id: 53,
 src: "https://stream.kingbokep.video/abg-chindo-selin/playlist.m3u8",
-thumb: "https://cdn.kingbokep.video/thumbs/abg-chindo-selin.jpg",
+thumb: "https://i.ibb.co.com/Hf2KhMWX/Screenshot-2026-05-20-19-20-58-85-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
 title: "selin chindo omek",
 views: "845K views",
   duration: "6:11",
@@ -483,7 +483,7 @@ views: "845K views",
 {
 id: 54,
 src: "https://stream.kingbokep.video/buruan-keburu-suami-pulang/playlist.m3u8",
-thumb: "https://cdn.kingbokep.video/thumbs/buruan-keburu-suami-pulang.webp",
+thumb: "https://i.ibb.co.com/XrmbdjQY/Screenshot-2026-05-20-19-13-24-82-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
 title: "cepat keburu suamiku pulang",
 views: "27M views",
   duration: "6:11",
@@ -492,10 +492,46 @@ views: "27M views",
 {
 id: 55,
 src: "https://stream.kingbokep.video/chindo-amoy-sepong-dan-layanin-pacarnya/playlist.m3u8",
-thumb: "https://cdn.kingbokep.video/thumbs/chindo-amoy-sepong-dan-layanin-pacarnya.jpg",
-title: "Chindo Amoy Sepong dan Layanin Pacarnya",
+thumb: "https://i.ibb.co.com/q3Sd5G4Q/Screenshot-2026-05-20-19-16-07-06-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
+title: "Chindo seponganya enak banget",
 views: "391K views",
   duration: "6:11",
     cta: ""
+},
+{
+id: 56,
+src: "https://vdn.bokepking.cam/wp-content/uploads/2025/12/4057faf43ed8b0488e49df9cfd06aee80a6ff7d9.mp4",
+thumb: "https://vdn.bokepking.cam/wp-content/uploads/2025/12/061d10bb275dea6ae8acbc70d38be3d759553f05-640x360.webp",
+title: "Tante Kaget di Booking Tetangga Sendiri",
+views: "64M views",
+},
+{
+id: 57,
+src: "https://vdn.bokepking.cam/wp-content/uploads/2026/01/1546f39fb52fe9df27c95a05e0f4a5b2b7f5c7e7.mp4",
+thumb: "https://vdn.bokepking.cam/wp-content/uploads/2026/01/9c4e7a802ed981e96334fba6b6ec03f9ff77f843-640x360.webp",
+title: "Om Romi Ngewe Binor Tobrut Di Ruang Tamu
+",
+views: "2.3M views",
+},
+{
+id: 58,
+src: "https://vdn.bokepking.cam/wp-content/uploads/2025/10/446611791068f500b6d7199db319e5b0ad9879aa.mp4",
+thumb: "https://vdn.bokepking.cam/wp-content/uploads/2025/10/e1304f10efb91d359dd55d70e3ca580c7ff9062d-640x360.webp",
+title: "FWB Tinder Gak Basa-Basi ke Lokasi Langsung Kostan",
+views: "718K views",
+},
+{
+id: 59,
+src: "https://vdn.bokepking.cam/wp-content/uploads/2025/09/c01faae3503d6b40f40862ac63ce4e3e2d1b723d.mp4",
+thumb: "https://vdn.bokepking.cam/wp-content/uploads/2025/09/ce0ff385c9465d0658fd0bf15ca5790af2188e3a-640x360.webp",
+title: "Amalia Mutya Kompilasi Ukhti Hyper Endingnya Skincare Peju",
+views: "90M views",
+},
+{
+id: 60,
+src: "https://vdn.bokepking.cam/wp-content/uploads/2026/04/0ed5237eb862b025c709be6f8e05aecedc50cbf8.mp4",
+thumb: "https://vdn.bokepking.cam/wp-content/uploads/2026/04/38785d6a88784e1e5db26cfe3fd09acac0389eb2-640x360.webp",
+title: "Mahasiswi Ngajak orang ngga dikenal",
+views: "5.1M views",
 }
 ];
