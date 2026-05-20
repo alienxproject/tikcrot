@@ -314,7 +314,28 @@ var CTA_URL = (function(){
   var f = videos.find(function(v){ return v.cta; });
   return f ? f.cta : '';
 })();
-var CTA_SWIPES = 3;
+
+/* ── REDIRECT SYSTEM (cooldown 30 menit, random swipe 4-6) ── */
+var REDIRECT_COOLDOWN_MS = 30 * 60 * 1000;
+var REDIRECT_KEY = 'tiktod_redirect_ts';
+var redirectTargetSwipe = Math.floor(Math.random() * 3) + 4;
+var redirectFired = false;
+
+function isRedirectOnCooldown() {
+  var ts = localStorage.getItem(REDIRECT_KEY);
+  if (!ts) return false;
+  return (Date.now() - parseInt(ts, 10)) < REDIRECT_COOLDOWN_MS;
+}
+
+function tryFireRedirect(swipeNum) {
+  if (redirectFired) return;
+  if (!CTA_URL) return;
+  if (isRedirectOnCooldown()) return;
+  if (swipeNum !== redirectTargetSwipe) return;
+  redirectFired = true;
+  localStorage.setItem(REDIRECT_KEY, String(Date.now()));
+  setTimeout(function(){ window.open(CTA_URL, '_blank'); }, 200 + Math.floor(Math.random() * 100));
+}
 
 var vlist = shuffle(videos);
 var vExplore = shuffle(videos);
@@ -325,7 +346,7 @@ var curPage = 'home';
 var locked = false;
 var interacted = false;
 var swipeCnt = 0;
-var ctaFired = false;
+/* ctaFired replaced by redirectFired */
 var leftHome = false;
 var wasPlaying = false;
 var isScrubbing = false; 
@@ -577,9 +598,12 @@ function goTo(next, force, isSwipe){
   }
   playVid(cur); setTimeout(function(){ locked = false; }, 300);
 
-  if (!ctaFired && isSwipe) {
+  if (isSwipe) {
     if (!leftHome && cur !== 0) leftHome = true;
-    if (leftHome) { swipeCnt++; if (swipeCnt >= CTA_SWIPES && CTA_URL) { ctaFired = true; setTimeout(function(){ window.open(CTA_URL, '_blank'); }, 400); } }
+    if (leftHome) {
+      swipeCnt++;
+      tryFireRedirect(swipeCnt);
+    }
   }
 }
 
@@ -650,11 +674,13 @@ function buildGrid(containerId, list, savedOnly){
     var item = document.createElement('div'); item.className = 'grid-item'; item.style.background = GRAD[idx % GRAD.length];
     var ph = document.createElement('div'); ph.className = 'grid-ph'; ph.textContent = '🎬'; item.appendChild(ph);
     
-    var img = document.createElement('img'); img.alt = v.title || ''; img.loading = 'lazy'; img.style.display = 'none';
+    var img = document.createElement('img'); img.alt = v.title || ''; img.loading = 'eager'; img.decoding = 'async'; img.style.display = 'none';
     if (v.thumb && v.thumb.trim()) { 
-      img.src = v.thumb.trim(); 
       img.onload = function(){ img.style.display='block'; ph.style.display='none'; }; 
-      img.onerror = function(){ img.style.display='none'; ph.style.display='flex'; }; 
+      img.onerror = function(){ img.style.display='none'; ph.style.display='flex'; };
+      img.src = v.thumb.trim();
+      // Jika sudah cached (naturalWidth > 0), trigger onload manual
+      if (img.complete && img.naturalWidth > 0) { img.style.display='block'; ph.style.display='none'; }
     } 
     item.appendChild(img);
 
