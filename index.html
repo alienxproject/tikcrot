@@ -25,6 +25,10 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
 
 .play-icon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.6);font-size:58px;color:#fff;z-index:7;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s;text-shadow:0 2px 14px rgba(0,0,0,.5)}
 .play-icon.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.vid-err{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9;display:none;flex-direction:column;align-items:center;gap:10px;pointer-events:none;text-align:center;padding:0 24px}
+.vid-err.show{display:flex}
+.vid-err-icon{font-size:46px;line-height:1}
+.vid-err-msg{color:rgba(255,255,255,.85);font-size:13px;font-weight:600;letter-spacing:.02em;text-shadow:0 1px 8px rgba(0,0,0,.9);line-height:1.5}
 .spinner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;border:3px solid rgba(255,255,255,.18);border-top-color:rgba(255,255,255,.9);border-radius:50%;z-index:8;opacity:0;pointer-events:none;animation:spin .7s linear infinite;transition:opacity .15s}
 .spinner.show{opacity:1}
 @keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
@@ -214,15 +218,15 @@ body.light-mode .dr-footer { border-top-color: rgba(0,0,0,.1); }
   
   <div class="dr-footer">
     <div class="dr-footer-gift">
-      <a href="https://cdn2.slicedrive.workers.dev" target="_blank" rel="noopener" class="dr-gift-btn" aria-label="Gift">
+      <a href="https://clapclap.pages.dev" target="_blank" rel="noopener" class="dr-gift-btn" aria-label="Gift">
         <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="26" height="26"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
       </a>
-      <p class="dr-ceo-text">by <strong>tiktod.official</strong> · all rights reserved</p>
+      <p class="dr-ceo-text"><strong>☝️ KLIK ICON DI ATAS INI · UNTUK AKSES VIDEO PREMIUM 👆</p>
     </div>
   </div>
 </div>
 
-<div id="swipeHint">👑 swipe up & use vpn kalo eror 👑</div>
+<div id="swipeHint">👑 swipe up & use vpn kalo error 👑</div>
 <div id="dots"></div>
 <div id="feed" style="bottom:60px"></div>
 <div id="toast"></div>
@@ -416,6 +420,8 @@ if (v.thumb) vid.poster = v.thumb;
   var pf = document.createElement('div'); pf.className = 'prog-fill';
   pw.appendChild(pf);
 
+  var ve = document.createElement('div'); ve.className = 'vid-err';
+  ve.innerHTML = '<div class="vid-err-icon">⚠️</div><div class="vid-err-msg">Video ini butuh VPN</div>';
   var pi = document.createElement('div'); pi.className = 'play-icon';
   var sp2 = document.createElement('div'); sp2.className = 'spinner';
   var sa = document.createElement('div'); sa.className = 'side-actions';
@@ -427,7 +433,7 @@ if (v.thumb) vid.poster = v.thumb;
   var dlBtn = document.createElement('div'); dlBtn.className = 'act-btn'; dlBtn.innerHTML = '<div class="act-icon">' + ICON_DL + '</div>';
 
   sa.appendChild(shareBtn); sa.appendChild(fsBtn); sa.appendChild(saveBtn); sa.appendChild(dlBtn);
-  slide.appendChild(vid); slide.appendChild(info); slide.appendChild(pw); slide.appendChild(pi); slide.appendChild(sp2); slide.appendChild(sa);
+  slide.appendChild(vid); slide.appendChild(info); slide.appendChild(pw); slide.appendChild(pi); slide.appendChild(sp2); slide.appendChild(ve); slide.appendChild(sa);
   feed.appendChild(slide); slides.push(slide);
 
   vid.addEventListener('loadedmetadata', function(){ applyAspect(vid); });
@@ -440,10 +446,10 @@ if (v.thumb) vid.poster = v.thumb;
   vid.addEventListener('error', function(){
     if (i !== cur) return;
     sp2.classList.remove('show');
-    pi.textContent = '⚠️'; pi.classList.add('show');
+    ve.classList.add('show');
     locked = false;
   });
-  vid.addEventListener('canplay', function(){ sp2.classList.remove('show'); });
+  vid.addEventListener('canplay', function(){ sp2.classList.remove('show'); ve.classList.remove('show'); });
   vid.addEventListener('playing', function(){
     sp2.classList.remove('show');
     if (!userPaused[i]) pi.classList.remove('show');
