@@ -11,7 +11,7 @@ var videos = [
     {
     id: 2,
     src: "https://cdn.videy.co/UtQwWd691.mp4",
-    thumb: "https://i.ibb.co/TBD9CPBc/Screenshot-2026-05-19-11-57-59-94-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
+    thumb: "https://i.ibb.co.com/TBD9CPBc/Screenshot-2026-05-19-11-57-59-94-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
     title: "ponakan nakalin tante",
     views: "5.1M views",
     duration: "8:32",
@@ -65,7 +65,7 @@ var videos = [
     {
     id: 8,
     src: "https://cdn.videy.co/qzKEYw201.mp4",
-    thumb: "https://i.ibb.co/7dyP64dt/Screenshot-2026-05-19-11-56-06-36-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
+    thumb: "https://i.ibb.co.com/7dyP64dt/Screenshot-2026-05-19-11-56-06-36-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
     title: "kakak suka ngajakin main pas rumah sepi",
     views: "761K views",
     duration: "8:32",
@@ -101,7 +101,7 @@ var videos = [
     {
     id: 12,
     src: "https://cdn.videy.co/zZPinfCq1.mp4",
-    thumb: "https://i.ibb.co/Y7rYdMZ0/Screenshot-2026-05-19-11-28-58-76-40deb401b9ffe8e1df2f1cc5ba480b12.jpg",
+    thumb: "https://i.ibb.co.com/Y7rYdMZ0/Screenshot-2026-05-19-11-28-58-76-40deb401b9ffe8e1df2f1cc5ba480b12.jpg",
     title: "spg magang kena ospek bos",
     views: "305K views",
     duration: "20:12",
@@ -195,7 +195,7 @@ var videos = [
   {
     id: 22,
     src: "https://cdn.videy.co/Csv3UTKJ1.mp4",
-    thumb: "https://i.ibb.co/Mx3YPqMQ/Screenshot-2026-05-19-11-54-08-75-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
+    thumb: "https://i.ibb.co.com/Mx3YPqMQ/Screenshot-2026-05-19-11-54-08-75-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
     title: "padahal masih kecil",
     views: "871K views",
     duration: "6:11",
@@ -285,7 +285,7 @@ var videos = [
   {
     id: 32,
     src: "https://cdn2.slicedrive.com/Z40Wp1uc1.mp4",
-    thumb: "https://i.ibb.co/q33Z7TnM/Screenshot-2026-05-19-11-52-30-71-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
+    thumb: "https://i.ibb.co.com/q33Z7TnM/Screenshot-2026-05-19-11-52-30-71-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
     title: "Permintaan terakhir mantan",
     views: "12M views",
     duration: "6:11",
@@ -321,7 +321,7 @@ var videos = [
   {
     id: 36,
     src: "https://media.slicedrive.com/hvPpbLLP1.mp4",
-    thumb: "https://i.ibb.co/HLsff43P/Screenshot-2026-05-19-12-03-01-45-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
+    thumb: "https://i.ibb.co.com/HLsff43P/Screenshot-2026-05-19-12-03-01-45-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
     title: "Cindo masih esdeh",
     views: "662K views",
     duration: "6:11",
@@ -339,7 +339,7 @@ var videos = [
   {
     id: 38,
     src: "https://media.slicedrive.com/ZDldzx5R1.mp4",
-    thumb: "https://i.ibb.co/JjM517Vk/Screenshot-2026-05-19-11-54-46-78-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
+    thumb: "https://i.ibb.co.com/JjM517Vk/Screenshot-2026-05-19-11-54-46-78-a87fd7db6caa850b517aa6fa9d2fcd0e.jpg",
     title: "Temen kkn di penginapan",
     views: "3.1M views",
     duration: "6:11",
