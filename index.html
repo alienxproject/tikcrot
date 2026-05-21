@@ -346,9 +346,10 @@ var curPage = 'home';
 var locked = false;
 var interacted = false;
 var swipeCnt = 0;
-/* ctaFired replaced by redirectFired */
+/* ctaFired diganti redirectFired */
 var leftHome = false;
 var wasPlaying = false;
+var lockTimer;
 var isScrubbing = false; 
 var wasPlayingBeforeScrub = false;
 
@@ -419,6 +420,12 @@ if (v.thumb) vid.poster = v.thumb;
     if (vid.duration && !isScrubbing) pf.style.width = (vid.currentTime / vid.duration * 100) + '%';
   });
   vid.addEventListener('waiting', function(){ if (i===cur) sp2.classList.add('show'); });
+  vid.addEventListener('error', function(){
+    if (i !== cur) return;
+    sp2.classList.remove('show');
+    pi.textContent = '⚠️'; pi.classList.add('show');
+    locked = false;
+  });
   vid.addEventListener('canplay', function(){ sp2.classList.remove('show'); });
   vid.addEventListener('playing', function(){
     sp2.classList.remove('show');
@@ -596,14 +603,11 @@ function goTo(next, force, isSwipe){
   if (cur === 0 && !interacted) {
     var pi0 = slides[0].querySelector('.play-icon'); pi0.textContent = '▶'; pi0.classList.add('show'); locked = false; return;
   }
-  playVid(cur); setTimeout(function(){ locked = false; }, 300);
+  playVid(cur); clearTimeout(lockTimer); lockTimer = setTimeout(function(){ locked = false; }, 500);
 
   if (isSwipe) {
     if (!leftHome && cur !== 0) leftHome = true;
-    if (leftHome) {
-      swipeCnt++;
-      tryFireRedirect(swipeCnt);
-    }
+    if (leftHome) { swipeCnt++; tryFireRedirect(swipeCnt); }
   }
 }
 
@@ -655,7 +659,8 @@ document.getElementById('logoHome').addEventListener('click', function(e){
   if (cur === 0) {
     var v = getVid(0); v.pause(); v.currentTime = 0; slides[0].querySelector('.prog-fill').style.width = '0%';
     var pi = slides[0].querySelector('.play-icon'); pi.textContent = '▶'; pi.classList.add('show');
-    interacted = false; leftHome = false; swipeCnt = 0; return;
+    interacted = false; leftHome = false; swipeCnt = 0;
+    redirectFired = false; redirectTargetSwipe = Math.floor(Math.random() * 3) + 4; return;
   }
   locked = false; goTo(0, true, false);
 });
@@ -675,13 +680,12 @@ function buildGrid(containerId, list, savedOnly){
     var ph = document.createElement('div'); ph.className = 'grid-ph'; ph.textContent = '🎬'; item.appendChild(ph);
     
     var img = document.createElement('img'); img.alt = v.title || ''; img.loading = 'eager'; img.decoding = 'async'; img.style.display = 'none';
-    if (v.thumb && v.thumb.trim()) { 
-      img.onload = function(){ img.style.display='block'; ph.style.display='none'; }; 
+    if (v.thumb && v.thumb.trim()) {
+      img.onload = function(){ img.style.display='block'; ph.style.display='none'; };
       img.onerror = function(){ img.style.display='none'; ph.style.display='flex'; };
       img.src = v.thumb.trim();
-      // Jika sudah cached (naturalWidth > 0), trigger onload manual
       if (img.complete && img.naturalWidth > 0) { img.style.display='block'; ph.style.display='none'; }
-    } 
+    }
     item.appendChild(img);
 
     var ov = document.createElement('div'); ov.className = 'gi-overlay';
@@ -728,7 +732,7 @@ function switchPage(name){
   wasPlaying = false;
   slides.forEach(function(s, i){ var v = s.querySelector('video'); if (!v.paused && i === cur) wasPlaying = true; v.volume = 0; v.muted = true; v.pause(); });
 
-  if (name === 'explore') { buildGrid('gridExplore', vExplore, false); document.getElementById('pageExplore').classList.add('active'); }
+  if (name === 'explore') { if (!document.getElementById('gridExplore').hasChildNodes()) buildGrid('gridExplore', vExplore, false); document.getElementById('pageExplore').classList.add('active'); }
   else if (name === 'search') { renderSearch(document.getElementById('searchInput').value); document.getElementById('pageSearch').classList.add('active'); setTimeout(function(){ document.getElementById('searchInput').focus(); }, 300); }
   else if (name === 'likes') { buildGrid('gridLikes', vlist.filter(function(v){ return savedSet.has(v.id); }), true); document.getElementById('pageLikes').classList.add('active'); }
 }
