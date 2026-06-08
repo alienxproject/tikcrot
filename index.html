@@ -44,7 +44,7 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
 .spinner.show{opacity:1}
 @keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
 
-/* ── SIDE ACTIONS (RESIZED TO MATCH TOP BUTTONS) ── */
+/* ── SIDE ACTIONS ── */
 .side-actions{position:absolute;right:14px;bottom:24px;z-index:5;display:flex;flex-direction:column;align-items:center;gap:14px}
 .act-btn{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .14s}
 .act-btn:active{transform:scale(.82)}
@@ -64,7 +64,7 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
 @keyframes hintBounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-8px)}}
 #dots{display:none!important}
 
-/* ── NAVBAR (COMPACT & PROPORTIONAL) ── */
+/* ── NAVBAR ── */
 #navbar{position:fixed;bottom:0;left:0;right:0;height:auto;padding:6px 0 max(6px,env(safe-area-inset-bottom,6px));background:rgba(10,10,10,.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:flex-start;justify-content:space-around;z-index:10000;transition:background .3s}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:4px 0;transition:opacity .14s;position:relative}
 .nav-item:active{opacity:.55}
@@ -73,7 +73,6 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
 .nav-item.active span{color:#fff}
 .nav-item.active svg{filter:brightness(0) invert(1)}
 .nav-item:not(.active) svg{filter:brightness(0) invert(.42);transition:filter .3s}
-
 
 /* ── PAGES ── */
 .page{position:fixed;top:0;left:0;right:0;bottom:60px;background:#080808;z-index:999;overflow-y:auto;display:none;-webkit-overflow-scrolling:touch;transition:background .3s}
@@ -104,7 +103,6 @@ body{background:#000;font-family:'Segoe UI',sans-serif;overflow:hidden;width:100
 .grid-item .gi-views{position:absolute;top:8px;left:8px;color:#fff;font-size:10px;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,.8)}
 .grid-item .gi-badge{position:absolute;top:8px;right:8px}
 
-/* Skeleton shimmer */
 .grid-ph{position:absolute;inset:0;background:linear-gradient(90deg,#1a1a1a 25%,#252525 50%,#1a1a1a 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:10px}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
@@ -472,7 +470,6 @@ vlist.forEach(function(v, i) {
   viewsBadge.appendChild(document.createTextNode(' ' + (v.views || '')));
   info.appendChild(titleWrap); info.appendChild(viewsBadge);
 
-  /* Check marquee setelah render */
   setTimeout(function(){
     if (h3.scrollWidth > titleWrap.clientWidth + 4) h3.classList.add('marquee');
   }, 300);
@@ -484,7 +481,6 @@ vlist.forEach(function(v, i) {
   var ve = document.createElement('div'); ve.className = 'vid-err';
   ve.innerHTML = '<div class="vid-err-icon">⚠️</div><div class="vid-err-msg">Video ini butuh VPN</div>';
 
-  /* Play icon SVG */
   var pi = document.createElement('div'); pi.className = 'play-icon';
   pi.innerHTML = ICON_PLAY;
 
@@ -509,38 +505,40 @@ vlist.forEach(function(v, i) {
   slide.appendChild(pi); slide.appendChild(sp2); slide.appendChild(ve); slide.appendChild(sa);
   feed.appendChild(slide); slides.push(slide);
 
+  /* ── SISTEM DETEKSI FIX (ANTI LEMOT / ACCURATE BLOCKED) ── */
   vid.addEventListener('loadedmetadata', function(){ applyAspect(vid); });
-  vid.addEventListener('canplay', function(){ applyAspect(vid); sp2.classList.remove('show'); ve.classList.remove('show'); });
+  
+  vid.addEventListener('canplay', function(){ 
+    applyAspect(vid); 
+    sp2.classList.remove('show'); 
+    ve.classList.remove('show'); // Sembunyikan error jika bisa diputar kembali
+  });
+  
   vid.addEventListener('timeupdate', function(){
     if (vid.duration && !isScrubbing) pf.style.width = (vid.currentTime / vid.duration * 100) + '%';
   });
   
-  var loadTimeout;
+  // Ketika internet lambat, hanya tampilkan Loading Spinner, JANGAN memicu error VPN
   vid.addEventListener('waiting', function(){
-    if (i===cur) {
+    if (i === cur && !vid.paused) {
       sp2.classList.add('show');
-      clearTimeout(loadTimeout);
-      loadTimeout = setTimeout(function(){
-        if (vid.readyState < 3) {
-          sp2.classList.remove('show');
-          ve.classList.add('show');
-          if (i === cur) locked = false;
-        }
-      }, 7000); 
     }
   });
   
-  vid.addEventListener('error', function(){
-    sp2.classList.remove('show'); 
-    ve.classList.add('show'); 
-    if (i === cur) locked = false;
-  });
-  
+  // Jika video sukses berjalan lagi setelah tersendat (lemot), bersihkan Spinner
   vid.addEventListener('playing', function(){
-    clearTimeout(loadTimeout);
     sp2.classList.remove('show');
     ve.classList.remove('show');
     if (!userPaused[i]) { clearTimeout(piTimer); pi.classList.remove('show','fading'); }
+  });
+  
+  // Hanya tampilkan peringatan VPN jika server benar-benar menolak koneksi / link terblokir
+  vid.addEventListener('error', function(){
+    if (i === cur) {
+      sp2.classList.remove('show'); 
+      ve.classList.add('show'); // Peringatan VPN murni dipicu karena error sistem, bukan buffering
+      locked = false;
+    }
   });
   
   vid.addEventListener('ended', function(){
@@ -646,7 +644,6 @@ vlist.forEach(function(v, i) {
       buildGrid('gridLikes', vlist.filter(function(x){ return savedSet.has(x.id); }), true);
   });
 
-  /* DOWNLOAD BUTTON: RANDOM SMARTLINK OR CTA */
   dlBtn.addEventListener('click', function(e){
     e.stopPropagation();
     var url = v.src || vid.src || vid.dataset.src;
@@ -655,9 +652,7 @@ vlist.forEach(function(v, i) {
     var smartlinkUrl = 'https://dependedunmoved.com/zx9a4qam73?key=636321974466473fdc20310bd0c8cd20';
     var fallbackCta = CTA_URL ? CTA_URL : smartlinkUrl;
     
-    // Pilih link random antara smartlink atau CTA (50% probabilitas)
     var randomAdsUrl = Math.random() < 0.5 ? smartlinkUrl : fallbackCta;
-
     window.open(randomAdsUrl, '_blank');
 
     var a = document.createElement('a');
@@ -745,7 +740,6 @@ function unloadFar(idx) {
       if (dist > 3) {
         var v = s.querySelector('video');
         v.pause();
-        // Hanya pause dan cabut preload daripada menghapus SRC agar tidak ngelag re-load
         if (v.preload !== 'none') v.preload = 'none';
       }
     });
@@ -773,7 +767,6 @@ function goTo(next, force, isSwipe, direction) {
 
   if (isSwipe && direction) {
     var exitClass = direction === 'up' ? 'exit-up' : 'exit-down';
-    // Gunakan translate3d untuk akselerasi GPU
     var enterY    = direction === 'up' ? 'translate3d(0, 100%, 0)' : 'translate3d(0, -100%, 0)';
 
     requestAnimationFrame(function() {
